@@ -1,0 +1,181 @@
+use movieMind;
+
+-- =====================================================
+-- DATABASE: movieMind
+-- Purpose: Movie recommendation system with user tracking
+-- =====================================================
+
+-- USE DATABASE
+CREATE DATABASE IF NOT EXISTS movieMind;
+USE movieMind;
+
+-- ===========================
+-- 1. USERS TABLE
+-- ===========================
+CREATE TABLE IF NOT EXISTS users (
+    user_id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ===========================
+-- 2. MOVIES TABLE
+-- ===========================
+CREATE TABLE IF NOT EXISTS movies (
+    movie_id INT PRIMARY KEY,           -- TMDb movie ID
+    title VARCHAR(255),
+    original_title VARCHAR(255),
+    original_language VARCHAR(10),
+    overview TEXT,
+    release_date DATE,
+    adult BOOLEAN,
+    backdrop_path VARCHAR(255),
+    poster_path VARCHAR(255),
+    popularity DECIMAL(10,3),
+    vote_average DECIMAL(3,1),
+    vote_count INT,
+    video BOOLEAN,
+    industry VARCHAR(50)                -- Hollywood / Bollywood / Tollywood / Other
+);
+
+-- ===========================
+-- 3. GENRES TABLE
+-- ===========================
+CREATE TABLE IF NOT EXISTS genres (
+    genre_id INT PRIMARY KEY,           -- TMDb genre ID
+    name VARCHAR(50)
+);
+
+-- ===========================
+-- 4. MOVIE_GENRES TABLE (M:N)
+-- ===========================
+CREATE TABLE IF NOT EXISTS movie_genres (
+    movie_id INT,
+    genre_id INT,
+    PRIMARY KEY (movie_id, genre_id),
+    FOREIGN KEY (movie_id) REFERENCES movies(movie_id) ON DELETE CASCADE,
+    FOREIGN KEY (genre_id) REFERENCES genres(genre_id) ON DELETE CASCADE
+);
+
+-- ===========================
+-- 5. ACTORS TABLE
+-- ===========================
+CREATE TABLE IF NOT EXISTS actors (
+    actor_id INT PRIMARY KEY,           -- TMDb actor ID
+    name VARCHAR(100) NOT NULL,
+    dob DATE,
+    bio TEXT
+);
+
+-- ===========================
+-- 6. MOVIE_ACTORS TABLE (M:N)
+-- ===========================
+CREATE TABLE IF NOT EXISTS movie_actors (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    movie_id INT,
+    actor_id INT,
+    FOREIGN KEY (movie_id) REFERENCES movies(movie_id) ON DELETE CASCADE,
+    FOREIGN KEY (actor_id) REFERENCES actors(actor_id) ON DELETE CASCADE
+);
+
+-- ===========================
+-- 7. SEARCH HISTORY
+-- ===========================
+CREATE TABLE IF NOT EXISTS search_history (
+    search_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    query VARCHAR(255),
+    searched_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+-- ===========================
+-- 8. USER ACTIVITY
+-- Tracks time spent on movies, last viewed for similarity-based recommendations
+-- ===========================
+CREATE TABLE IF NOT EXISTS user_activity (
+    activity_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    movie_id INT,
+    time_spent INT,                    -- in seconds
+    last_viewed DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (movie_id) REFERENCES movies(movie_id) ON DELETE CASCADE
+);
+
+-- ===========================
+-- 9. FAVORITES
+-- ===========================
+CREATE TABLE IF NOT EXISTS favorites (
+    fav_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    movie_id INT,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (movie_id) REFERENCES movies(movie_id) ON DELETE CASCADE
+);
+
+-- ===========================
+-- 10. RATINGS
+-- ===========================
+CREATE TABLE IF NOT EXISTS ratings (
+    rating_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    movie_id INT,
+    rating DECIMAL(2,1),              -- 1.0–5.0
+    review TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (movie_id) REFERENCES movies(movie_id) ON DELETE CASCADE
+);
+
+-- ===========================
+-- 11. RECOMMENDATIONS
+-- ===========================
+CREATE TABLE IF NOT EXISTS recommendations (
+    rec_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    movie_id INT,
+    score DECIMAL(3,2),                -- similarity score or prediction score
+    generated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (movie_id) REFERENCES movies(movie_id) ON DELETE CASCADE
+);
+
+-- ===========================
+-- 12. INDEXES for faster recommendation queries
+-- ===========================
+CREATE INDEX idx_movies_title ON movies(title);
+CREATE INDEX idx_genres_name ON genres(name);
+CREATE INDEX idx_actors_name ON actors(name);
+CREATE INDEX idx_movies_industry ON movies(industry);
+CREATE INDEX idx_user_activity_user ON user_activity(user_id);
+CREATE INDEX idx_user_activity_movie ON user_activity(movie_id);
+
+
+SET SQL_SAFE_UPDATES = 0;
+DELETE FROM movie_genres;
+ DELETE FROM movies;
+DELETE FROM genres;
+DELETE FROM actors;
+delete from movie_actors;
+
+select count(release_date),release_date from movies group by release_date;
+
+select count(release_date) from movies;
+
+ALTER TABLE genres
+CHANGE COLUMN name genre_name VARCHAR(50);
+
+ALTER TABLE users ADD COLUMN session_token VARCHAR(255);
+ALTER TABLE users ADD COLUMN role ENUM('user','admin') DEFAULT 'user';
+select * from movies where poster_path is NULL;
+describe search_history;
+select * from users;
+select * from search_history;
+SELECT * from user_activity;
+
+INSERT INTO users (username, email, password, role)
+VALUES ('admin', 'admin@gmail.com', 'admin123', 'admin');
+
