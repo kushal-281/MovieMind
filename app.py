@@ -97,10 +97,6 @@ if "id" in st.query_params:
     except Exception:
         pass
 
-# --chnages--
-st.text_input('heello')
 
-# --
-st.text('byeee')
 # ---------------- FOOTER ----------------
 show_footer()
