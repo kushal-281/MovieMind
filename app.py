@@ -100,5 +100,7 @@ if "id" in st.query_params:
 # --chnages--
 st.text_input('heello')
 
+# --
+st.text('byeee')
 # ---------------- FOOTER ----------------
 show_footer()
