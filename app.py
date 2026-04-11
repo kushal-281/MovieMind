@@ -98,5 +98,7 @@ if "id" in st.query_params:
         pass
 
 
+# --
+st.text('byeee')
 # ---------------- FOOTER ----------------
 show_footer()
