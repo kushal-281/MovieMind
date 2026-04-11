@@ -75,3 +75,9 @@ def show_footer():
         """, unsafe_allow_html=True)
 
     st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style="text-align:center; color:#888;">
+    © 2026 MovieMind. All Rights Reserved.
+    </div>
+    """, unsafe_allow_html=True)

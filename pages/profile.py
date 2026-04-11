@@ -1,31 +1,54 @@
 import streamlit as st
-from components.header import show_header
-from cookies import cookies
-from datetime import datetime
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
+from sqlalchemy import text
+
+from components.header import show_header
+from components.auth import restore_session
+from components.movie_chatbot import render_movie_chatbot
+from cookies import cookies
 from config.database import engine
 
 st.set_page_config(layout="wide")
 
-# ---------------- PROTECT PAGE ----------------
-if "user" not in st.session_state or st.session_state.user is None:
+restore_session()
+
+if not st.session_state.get("user"):
     st.switch_page("app.py")
 
-show_header()
 user = st.session_state.user
-user_id = int(user['user_id'])  # Ensure user_id is int
+if user.get("role") == "admin":
+    st.switch_page("pages/admin_profile.py")
 
-# ---------------- SIDEBAR / LEFT COLUMN ----------------
+user_id = int(user["user_id"])
+
+show_header()
+
 col1, col2 = st.columns([1, 3])
 
 with col1:
     st.title("👤 Profile")
     st.write(f"**Username:** {user['username']}")
     st.write(f"**Role:** {user['role']}")
+    try:
+        with engine.connect() as c2:
+            row = c2.execute(
+                text(
+                    "SELECT COALESCE(total_site_seconds, 0) AS t FROM users WHERE user_id = :uid"
+                ),
+                {"uid": user_id},
+            ).fetchone()
+        if row:
+            total_s = int(row[0] or 0)
+            st.write(
+                f"**Time on site (approx.):** {total_s // 3600}h {(total_s % 3600) // 60}m {total_s % 60}s"
+            )
+    except Exception:
+        pass
     st.divider()
 
-    tab = st.radio("Menu", ["Search History", "Activity Report", "Chat Bot Logs", "Favorites", "Analytics"])
+    tab = st.radio("Menu", ["Search History", "Chat Bot", "Analytics"])
 
     if st.button("Logout", key="profile_logout_btn"):
         st.session_state["force_logout"] = True
@@ -38,22 +61,21 @@ with col1:
                 del st.session_state[key]
         st.switch_page("app.py")
 
-# ---------------- RIGHT COLUMN / DETAILS ----------------
 with col2:
     try:
-        # Connect using SQLAlchemy engine
         conn = engine.connect()
 
-        # ---------------- SEARCH HISTORY ----------------
         if tab == "Search History":
             st.subheader("🕵️ Search History")
-            query = """
+            q_sh = text(
+                """
                 SELECT query, searched_at
                 FROM search_history
-                WHERE user_id = %(user_id)s
+                WHERE user_id = :uid
                 ORDER BY searched_at DESC
-            """
-            searches = pd.read_sql(query, conn, params={"user_id": user_id})
+                """
+            )
+            searches = pd.read_sql(q_sh, conn, params={"uid": user_id})
 
             if not searches.empty:
                 for _, s in searches.iterrows():
@@ -61,116 +83,180 @@ with col2:
             else:
                 st.info("No search history found.")
 
-        # ---------------- USER ACTIVITY ----------------
-        elif tab == "Activity Report":
-            st.subheader("⏱️ User Activity")
-            query = """
-                SELECT ua.movie_id, m.title, ua.time_spent, ua.last_viewed
-                FROM user_activity ua
-                JOIN movies m ON ua.movie_id = m.movie_id
-                WHERE ua.user_id = %(user_id)s
-                ORDER BY ua.last_viewed DESC
-            """
-            activities = pd.read_sql(query, conn, params={"user_id": user_id})
+        elif tab == "Chat Bot":
+            render_movie_chatbot(user_id)
 
-            if not activities.empty:
-                for _, a in activities.iterrows():
-                    minutes = a['time_spent'] // 60
-                    seconds = a['time_spent'] % 60
-                    st.write(f"- **{a['title']}** | Time spent: {minutes}m {seconds}s | Last viewed: {a['last_viewed']}")
-            else:
-                st.info("No activity found.")
-
-        # ---------------- CHAT BOT LOGS ----------------
-        elif tab == "Chat Bot Logs":
-            st.subheader("💬 Chat Bot Logs")
-            try:
-                query = """
-                    SELECT query, response, timestamp
-                    FROM chat_logs
-                    WHERE user_id = %(user_id)s
-                    ORDER BY timestamp DESC
-                """
-                chats = pd.read_sql(query, conn, params={"user_id": user_id})
-            except:
-                chats = pd.DataFrame()
-
-            if not chats.empty:
-                for _, c in chats.iterrows():
-                    st.write(f"- **You:** {c['query']}  \n  **Bot:** {c['response']}  \n  _{c['timestamp']}_")
-            else:
-                st.info("No chat history available.")
-
-        # ---------------- FAVORITES ----------------
-        elif tab == "Favorites":
-            st.subheader("⭐ Favorites")
-            query = """
-                SELECT m.title, m.release_date, m.industry
-                FROM favorites f
-                JOIN movies m ON f.movie_id = m.movie_id
-                WHERE f.user_id = %(user_id)s
-                ORDER BY f.fav_id DESC
-            """
-            favs = pd.read_sql(query, conn, params={"user_id": user_id})
-
-            if not favs.empty:
-                for _, f in favs.iterrows():
-                    st.write(f"- **{f['title']}** | {f['industry']} | Released: {f['release_date']}")
-            else:
-                st.info("No favorite movies found.")
-
-        # ---------------- ANALYTICS ----------------
         elif tab == "Analytics":
-            st.subheader("📊 Analytics")
+            st.subheader("📊 Your analytics")
 
-            # Total time spent per movie
-            query = """
-                SELECT m.title, SUM(ua.time_spent) as total_time
+            # --- Total time on site (easy to read gauge) ---
+            with engine.connect() as c3:
+                r2 = c3.execute(
+                    text(
+                        "SELECT COALESCE(total_site_seconds, 0) AS t FROM users WHERE user_id = :uid"
+                    ),
+                    {"uid": user_id},
+                ).fetchone()
+            total_s = int(r2[0] or 0) if r2 else 0
+            total_min = round(total_s / 60, 1)
+            cap = max(30.0, total_min * 1.25, 60.0)
+
+            fig_g = go.Figure(
+                go.Indicator(
+                    mode="gauge+number",
+                    value=total_min,
+                    number={"suffix": " min", "valueformat": ".1f"},
+                    title={"text": "Approx. active time on MovieMind"},
+                    gauge={
+                        "axis": {"range": [0, cap]},
+                        "bar": {"color": "#007BFF"},
+                        "steps": [
+                            {"range": [0, cap * 0.33], "color": "#e8f4ff"},
+                            {"range": [cap * 0.33, cap * 0.66], "color": "#cde8ff"},
+                        ],
+                    },
+                )
+            )
+            fig_g.update_layout(height=280, margin=dict(l=30, r=30, t=50, b=30))
+            st.plotly_chart(fig_g, use_container_width=True)
+            st.caption(
+                "Time grows when you click around the app. Long breaks without clicks are not counted."
+            )
+
+            st.markdown("#### Time spent on each movie (minutes)")
+            q_movie = text(
+                """
+                SELECT m.title, SUM(ua.time_spent) AS total_time
                 FROM user_activity ua
                 JOIN movies m ON ua.movie_id = m.movie_id
-                WHERE ua.user_id = %(user_id)s
-                GROUP BY ua.movie_id
+                WHERE ua.user_id = :uid
+                GROUP BY ua.movie_id, m.title
                 ORDER BY total_time DESC
-            """
-            df_time = pd.read_sql(query, conn, params={"user_id": user_id})
+                LIMIT 15
+                """
+            )
+            df_time = pd.read_sql(q_movie, conn, params={"uid": user_id})
             if not df_time.empty:
-                fig = px.bar(df_time, x='title', y='total_time',
-                             title='Total Time Spent per Movie',
-                             labels={'total_time':'Time (seconds)'})
-                st.plotly_chart(fig, use_container_width=True)
+                df_time["minutes"] = (df_time["total_time"] / 60.0).round(2)
+                fig_m = px.bar(
+                    df_time,
+                    x="minutes",
+                    y="title",
+                    orientation="h",
+                    labels={"minutes": "Minutes", "title": "Movie"},
+                    title="Where you spend time (detail pages)",
+                )
+                fig_m.update_layout(yaxis={"categoryorder": "total ascending"})
+                st.plotly_chart(fig_m, use_container_width=True)
+            else:
+                st.info("Open some movie pages to see time-per-movie here.")
 
-            # Search frequency over time
-            query = """
-                SELECT DATE(searched_at) as date, COUNT(*) as searches
+            st.markdown("#### Searches matched to industry")
+            try:
+                q_ind = text(
+                    """
+                    SELECT COALESCE(m.industry, 'Unknown') AS industry, COUNT(*) AS cnt
+                    FROM search_history sh
+                    JOIN movies m ON m.title LIKE CONCAT('%', sh.query, '%')
+                    WHERE sh.user_id = :uid
+                    GROUP BY m.industry
+                    ORDER BY cnt DESC
+                    """
+                )
+                df_ind = pd.read_sql(q_ind, conn, params={"uid": user_id})
+                if not df_ind.empty:
+                    fig_i = px.bar(
+                        df_ind,
+                        x="industry",
+                        y="cnt",
+                        labels={"industry": "Industry", "cnt": "Matched searches"},
+                        title="How often your search text matched movies in each industry",
+                    )
+                    st.plotly_chart(fig_i, use_container_width=True)
+                else:
+                    st.info(
+                        "No industry matches yet (try searching full movie titles from the catalog)."
+                    )
+            except Exception:
+                st.info("Industry chart skipped (no matching data or schema issue).")
+
+            st.markdown("#### Searches matched to genre")
+            try:
+                q_gen = text(
+                    """
+                    SELECT g.genre_name AS genre_name, COUNT(*) AS cnt
+                    FROM search_history sh
+                    JOIN movies m ON m.title LIKE CONCAT('%', sh.query, '%')
+                    JOIN movie_genres mg ON mg.movie_id = m.movie_id
+                    JOIN genres g ON g.genre_id = mg.genre_id
+                    WHERE sh.user_id = :uid
+                    GROUP BY g.genre_name
+                    ORDER BY cnt DESC
+                    LIMIT 12
+                    """
+                )
+                df_gen = pd.read_sql(q_gen, conn, params={"uid": user_id})
+                if not df_gen.empty:
+                    fig_g2 = px.bar(
+                        df_gen,
+                        x="genre_name",
+                        y="cnt",
+                        labels={"genre_name": "Genre", "cnt": "Matched searches"},
+                        title="Genres tied to movies that matched your searches",
+                    )
+                    st.plotly_chart(fig_g2, use_container_width=True)
+                else:
+                    st.info("No genre matches yet.")
+            except Exception:
+                try:
+                    q_gen2 = text(
+                        """
+                        SELECT g.name AS genre_name, COUNT(*) AS cnt
+                        FROM search_history sh
+                        JOIN movies m ON m.title LIKE CONCAT('%', sh.query, '%')
+                        JOIN movie_genres mg ON mg.movie_id = m.movie_id
+                        JOIN genres g ON g.genre_id = mg.genre_id
+                        WHERE sh.user_id = :uid
+                        GROUP BY g.name
+                        ORDER BY cnt DESC
+                        LIMIT 12
+                        """
+                    )
+                    df_gen = pd.read_sql(q_gen2, conn, params={"uid": user_id})
+                    if not df_gen.empty:
+                        fig_g2 = px.bar(
+                            df_gen,
+                            x="genre_name",
+                            y="cnt",
+                            title="Genres tied to movies that matched your searches",
+                        )
+                        st.plotly_chart(fig_g2, use_container_width=True)
+                except Exception:
+                    st.info("Genre chart skipped (check genres column: genre_name vs name).")
+
+            st.markdown("#### Search activity over time")
+            q_sf = text(
+                """
+                SELECT DATE(searched_at) AS date, COUNT(*) AS searches
                 FROM search_history
-                WHERE user_id = %(user_id)s
+                WHERE user_id = :uid
                 GROUP BY DATE(searched_at)
                 ORDER BY date
-            """
-            df_search = pd.read_sql(query, conn, params={"user_id": user_id})
+                """
+            )
+            df_search = pd.read_sql(q_sf, conn, params={"uid": user_id})
             if not df_search.empty:
-                fig = px.line(df_search, x='date', y='searches', title='Search Frequency Over Time')
-                st.plotly_chart(fig, use_container_width=True)
-
-            # Most searched genres
-            query = """
-                SELECT g.genre_name, COUNT(*) as count
-                FROM search_history sh
-                JOIN movies m ON m.title LIKE CONCAT('%', sh.query, '%')
-                JOIN movie_genres mg ON mg.movie_id = m.movie_id
-                JOIN genres g ON g.genre_id = mg.genre_id
-                WHERE sh.user_id = %(user_id)s
-                GROUP BY g.genre_name
-                ORDER BY count DESC
-                LIMIT 10
-            """
-            df_genre = pd.read_sql(query, conn, params={"user_id": user_id})
-            if not df_genre.empty:
-                fig = px.pie(df_genre, names='genre_name', values='count', title='Most Searched Genres')
-                st.plotly_chart(fig, use_container_width=True)
+                fig_l = px.line(
+                    df_search,
+                    x="date",
+                    y="searches",
+                    markers=True,
+                    title="Number of searches per day",
+                )
+                st.plotly_chart(fig_l, use_container_width=True)
 
     except Exception as e:
         st.error(f"⚠️ Database error: {e}")
     finally:
-        if 'conn' in locals():
+        if "conn" in locals():
             conn.close()

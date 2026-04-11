@@ -1,9 +1,9 @@
 import streamlit as st
 from sqlalchemy import text
 from config.database import engine
-import json
-from cookies import cookies
 import base64
+
+from components.auth import login_user
 
 st.set_page_config(layout="wide")
 
@@ -92,13 +92,7 @@ with col2:
                     "role": user.role
                 }
 
-                st.session_state.user = user_dict
-
-                if "force_logout" in st.session_state:
-                    del st.session_state["force_logout"]
-
-                cookies["user"] = json.dumps(user_dict)
-                cookies.save()
+                login_user(user_dict)
 
                 st.success("Login Successful")
                 st.switch_page("app.py")

@@ -144,7 +144,34 @@ CREATE TABLE IF NOT EXISTS recommendations (
 );
 
 -- ===========================
--- 12. INDEXES for faster recommendation queries
+-- 12. CHAT LOGS
+-- ===========================
+CREATE TABLE IF NOT EXISTS chat_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    query TEXT NOT NULL,
+    response TEXT NOT NULL,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+-- ===========================
+-- 13. CONTACT MESSAGES
+-- ===========================
+CREATE TABLE IF NOT EXISTS contact_messages (
+    message_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NULL,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(180) NOT NULL,
+    subject VARCHAR(200),
+    message TEXT NOT NULL,
+    status VARCHAR(20) DEFAULT 'new',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE SET NULL
+);
+
+-- ===========================
+-- 14. INDEXES for faster recommendation queries
 -- ===========================
 CREATE INDEX idx_movies_title ON movies(title);
 CREATE INDEX idx_genres_name ON genres(name);

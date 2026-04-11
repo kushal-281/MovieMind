@@ -1,6 +1,8 @@
 import streamlit as st
+
 from components.header import show_header
 from components.auth import require_login
+from admin.dashboard import show_admin_dashboard
 
 st.set_page_config(layout="wide")
 
@@ -13,4 +15,4 @@ if st.session_state.user.get("role") != "admin":
 
 show_header()
 
-st.title("Admin Panel")
+show_admin_dashboard()
