@@ -1,6 +1,7 @@
 import streamlit as st
 from sqlalchemy import text
 from config.database import engine
+from config.database import ensure_schema
 import base64
 import random
 import re
@@ -13,6 +14,20 @@ def get_base64_image(path):
         return base64.b64encode(img.read()).decode()
 
 logo = get_base64_image("assets/movieMind.png")
+ensure_schema()
+
+
+def password_strength_label(password: str):
+    checks = {
+        "length": len(password) >= 8,
+        "digit": any(char.isdigit() for char in password),
+        "special": any(not char.isalnum() for char in password),
+        "alpha": any(char.isalpha() for char in password),
+    }
+    score = sum(checks.values())
+    if score == 4:
+        return "Strong", "green"
+    return "Weak", "red"
 
 # ---------------- CAPTCHA INIT ----------------
 if "captcha_a" not in st.session_state:
@@ -78,6 +93,12 @@ with col2:
         username = st.text_input("Username", key="signup_username")
         email = st.text_input("Email", key="signup_email")
         password = st.text_input("Password", type="password", key="signup_password")
+        if password:
+            strength_text, strength_color = password_strength_label(password)
+            st.markdown(
+                f"<p style='margin:0;color:{strength_color};font-weight:600;'>Password Strength: {strength_text}</p>",
+                unsafe_allow_html=True,
+            )
 
         captcha_answer = st.text_input(
             f"What is {st.session_state.captcha_a} + {st.session_state.captcha_b} ?",
@@ -99,14 +120,14 @@ with col2:
             elif not re.match(r"^[\\w\\.-]+@[\\w\\.-]+\\.\\w+$", email):
                 st.error("Invalid email format!")
 
-            elif len(password) < 6:
-                st.error("Password must be at least 6 characters!")
+            elif len(password) < 8:
+                st.error("Password must be at least 8 characters!")
 
             elif not any(char.isdigit() for char in password):
                 st.error("Password must contain at least 1 number!")
 
-            elif not any(char.isalpha() for char in password):
-                st.error("Password must contain at least 1 letter!")
+            elif not any(not ch.isalnum() for ch in password):
+                st.error("Password must contain at least 1 special character!")
 
             else:
                 correct_answer = st.session_state.captcha_a + st.session_state.captcha_b
@@ -115,16 +136,31 @@ with col2:
                     st.error("Captcha verification failed!")
 
                 else:
+                    exists_query = text(
+                        """
+                        SELECT user_id
+                        FROM users
+                        WHERE username = :username OR email = :email
+                        LIMIT 1
+                        """
+                    )
                     query = text("""
                     INSERT INTO users (username,email,password,role)
                     VALUES (:username,:email,:password,'user')
                     """)
 
                     try:
-                        with engine.connect() as conn:
+                        with engine.begin() as conn:
+                            existing = conn.execute(
+                                exists_query,
+                                {"username": username.strip(), "email": email.strip()},
+                            ).fetchone()
+                            if existing:
+                                st.error("Username or email already exists.")
+                                st.stop()
                             conn.execute(query, {
-                                "username": username,
-                                "email": email,
+                                "username": username.strip(),
+                                "email": email.strip(),
                                 "password": password
                             })
 

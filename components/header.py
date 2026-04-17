@@ -51,6 +51,7 @@ def show_header():
         padding: 0.35rem 0.75rem;
         font-weight: 500;
         margin-top: 8px;
+        margin-bottom: 8px; /* Change this if you want more/less button gap */
     }
 
     .mm-header-bar .stButton > button:hover {
@@ -65,7 +66,11 @@ def show_header():
         background: #f4f4f5;
         border-radius: 999px;
         font-size: 0.95rem;
+        font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+        font-weight: 600;
+        letter-spacing: 0.2px;
         display: inline-block;
+        color: #000;
     }
 
     div[data-testid="stHorizontalBlock"]:has(.mm-search-row) [data-testid="column"] {
@@ -81,6 +86,7 @@ def show_header():
     }
     .mm-search-row .stButton > button {
         margin-top: 16px !important;
+        margin-bottom: 8px !important; /* Keep spacing editable from one place */
         border-radius: 8px !important;
         min-height: 42px;
     }

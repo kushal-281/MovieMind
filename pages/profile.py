@@ -48,7 +48,9 @@ with col1:
         pass
     st.divider()
 
-    tab = st.radio("Menu", ["Search History", "Chat Bot", "Analytics"])
+    tab = st.radio(
+        "Menu", ["Chat Bot", "Chatbot History", "Search History", "Analytics"]
+    )
 
     if st.button("Logout", key="profile_logout_btn"):
         st.session_state["force_logout"] = True
@@ -65,7 +67,33 @@ with col2:
     try:
         conn = engine.connect()
 
-        if tab == "Search History":
+        if tab == "Chat Bot":
+            render_movie_chatbot(user_id)
+
+        elif tab == "Chatbot History":
+            st.subheader("🧾 Chatbot History")
+            q_chat = text(
+                """
+                SELECT query, response, timestamp
+                FROM chat_logs
+                WHERE user_id = :uid
+                ORDER BY timestamp DESC
+                """
+            )
+            chat_hist = pd.read_sql(q_chat, conn, params={"uid": user_id})
+            if not chat_hist.empty:
+                chat_hist = chat_hist.rename(
+                    columns={
+                        "query": "Question",
+                        "response": "Answer",
+                        "timestamp": "Date Time",
+                    }
+                )
+                st.dataframe(chat_hist, use_container_width=True, hide_index=True)
+            else:
+                st.info("No chatbot history found.")
+
+        elif tab == "Search History":
             st.subheader("🕵️ Search History")
             q_sh = text(
                 """
@@ -78,13 +106,16 @@ with col2:
             searches = pd.read_sql(q_sh, conn, params={"uid": user_id})
 
             if not searches.empty:
-                for _, s in searches.iterrows():
-                    st.write(f"- **{s['query']}** (searched at {s['searched_at']})")
+                searches["searched_at"] = pd.to_datetime(
+                    searches["searched_at"], errors="coerce"
+                )
+                searches["Search History"] = searches["query"].astype(str)
+                searches["Time"] = searches["searched_at"].dt.strftime("%H-%M-%S")
+                searches["Date"] = searches["searched_at"].dt.strftime("%d-%m-%Y")
+                searches = searches[["Search History", "Time", "Date"]]
+                st.dataframe(searches, use_container_width=True, hide_index=True)
             else:
                 st.info("No search history found.")
-
-        elif tab == "Chat Bot":
-            render_movie_chatbot(user_id)
 
         elif tab == "Analytics":
             st.subheader("📊 Your analytics")
@@ -109,10 +140,10 @@ with col2:
                     title={"text": "Approx. active time on MovieMind"},
                     gauge={
                         "axis": {"range": [0, cap]},
-                        "bar": {"color": "#007BFF"},
+                        "bar": {"color": "#8a2be2"},
                         "steps": [
-                            {"range": [0, cap * 0.33], "color": "#e8f4ff"},
-                            {"range": [cap * 0.33, cap * 0.66], "color": "#cde8ff"},
+                            {"range": [0, cap * 0.33], "color": "#f2e8ff"},
+                            {"range": [cap * 0.33, cap * 0.66], "color": "#e2d1ff"},
                         ],
                     },
                 )
@@ -145,6 +176,7 @@ with col2:
                     orientation="h",
                     labels={"minutes": "Minutes", "title": "Movie"},
                     title="Where you spend time (detail pages)",
+                    color_discrete_sequence=["#6a5acd"],
                 )
                 fig_m.update_layout(yaxis={"categoryorder": "total ascending"})
                 st.plotly_chart(fig_m, use_container_width=True)
@@ -171,6 +203,7 @@ with col2:
                         y="cnt",
                         labels={"industry": "Industry", "cnt": "Matched searches"},
                         title="How often your search text matched movies in each industry",
+                        color_discrete_sequence=["#20b2aa"],
                     )
                     st.plotly_chart(fig_i, use_container_width=True)
                 else:
@@ -203,6 +236,7 @@ with col2:
                         y="cnt",
                         labels={"genre_name": "Genre", "cnt": "Matched searches"},
                         title="Genres tied to movies that matched your searches",
+                        color_discrete_sequence=["#ff8c42"],
                     )
                     st.plotly_chart(fig_g2, use_container_width=True)
                 else:
@@ -229,6 +263,7 @@ with col2:
                             x="genre_name",
                             y="cnt",
                             title="Genres tied to movies that matched your searches",
+                            color_discrete_sequence=["#ff8c42"],
                         )
                         st.plotly_chart(fig_g2, use_container_width=True)
                 except Exception:
@@ -253,6 +288,7 @@ with col2:
                     markers=True,
                     title="Number of searches per day",
                 )
+                fig_l.update_traces(line_color="#2e8b57", marker_color="#2e8b57")
                 st.plotly_chart(fig_l, use_container_width=True)
 
     except Exception as e:

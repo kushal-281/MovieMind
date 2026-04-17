@@ -73,7 +73,7 @@ else:
 rows = st.session_state.get(k_rows, [])
 st.caption(f"Showing {len(rows)} movies for **{sel}**.")
 
-render_movie_grid(rows, page_key_prefix="year")
+render_movie_grid(rows, page_key_prefix="year", show_row_dividers=True)
 
 if len(batch_rows) == PAGE:
     if st.button("Show more movies", key="year_more"):

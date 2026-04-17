@@ -15,6 +15,8 @@ params = st.query_params
 movie_id = params.get("id", None)
 if isinstance(movie_id, list):
     movie_id = movie_id[0] if movie_id else None
+elif isinstance(movie_id, str):
+    movie_id = movie_id.strip()
 
 if not movie_id and st.session_state.get("selected_movie_id"):
     movie_id = st.session_state.get("selected_movie_id")

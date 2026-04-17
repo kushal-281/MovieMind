@@ -3,14 +3,110 @@
 import pandas as pd
 import streamlit as st
 from sqlalchemy import text
+import html
 
 from config.database import engine
 from ml.recommendation_engine import recommend
 
 
+def _format_recommendation_answer(prompt: str, picks: list[dict]) -> str:
+    lines = [f"### Recommendations for: _{prompt}_", ""]
+    for idx, m in enumerate(picks, start=1):
+        title = m.get("title") or "Unknown"
+        rating = m.get("rating")
+        rating_txt = f"{float(rating):.1f}" if rating is not None else "N/A"
+        lines.append(f"{idx}. **{title}**  \n   - Rating: `{rating_txt}`")
+    lines.append("")
+    lines.append("You can ask by mood, genre, actor, year, or similar story type.")
+    return "\n".join(lines)
+
+
+def _answer_catalog_questions(prompt: str) -> str | None:
+    q = prompt.lower()
+    try:
+        with engine.connect() as conn:
+            if any(k in q for k in ["top rated", "best movie", "highest rated"]):
+                df = pd.read_sql(
+                    text(
+                        """
+                        SELECT title, vote_average
+                        FROM movies
+                        WHERE vote_count > 100
+                        ORDER BY vote_average DESC, vote_count DESC
+                        LIMIT 5
+                        """
+                    ),
+                    conn,
+                )
+                if not df.empty:
+                    body = "\n".join(
+                        [
+                            f"- **{r['title']}** (Rating: {float(r['vote_average']):.1f})"
+                            for _, r in df.iterrows()
+                        ]
+                    )
+                    return f"### Top Rated Movies\n{body}"
+
+            if any(k in q for k in ["latest", "new movie", "recent movie"]):
+                df = pd.read_sql(
+                    text(
+                        """
+                        SELECT title, release_date
+                        FROM movies
+                        WHERE release_date IS NOT NULL
+                        ORDER BY release_date DESC
+                        LIMIT 5
+                        """
+                    ),
+                    conn,
+                )
+                if not df.empty:
+                    body = "\n".join(
+                        [f"- **{r['title']}** ({r['release_date']})" for _, r in df.iterrows()]
+                    )
+                    return f"### Latest Movies\n{body}"
+    except Exception:
+        return None
+    return None
+
+
 def render_movie_chatbot(user_id: int):
     st.subheader("💬 MovieMind Assistant")
     st.caption("Ask about movies, get recommendations, or describe what you feel like watching.")
+    st.markdown(
+        """
+        <style>
+        .mm-chat-wrap {
+            max-height: 460px;
+            overflow-y: auto;
+            border: 1px solid rgba(140, 162, 255, 0.22);
+            border-radius: 14px;
+            padding: 10px;
+            background: linear-gradient(180deg, #111626 0%, #0f1422 100%);
+        }
+        .mm-chat-msg {
+            padding: 10px 12px;
+            border-radius: 12px;
+            margin: 8px 0;
+            line-height: 1.4;
+            white-space: pre-wrap;
+        }
+        .mm-user {
+            background: #3a2c58;
+            border: 1px solid rgba(207, 164, 255, 0.35);
+            margin-left: 18%;
+            color: #efe9ff;
+        }
+        .mm-bot {
+            background: #1f3b35;
+            border: 1px solid rgba(114, 210, 180, 0.35);
+            margin-right: 18%;
+            color: #e6fff7;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
     try:
         q_hist = text(
@@ -28,36 +124,42 @@ def render_movie_chatbot(user_id: int):
         chats = pd.DataFrame()
 
     if not chats.empty:
+        bubble_html = ['<div class="mm-chat-wrap">']
         for _, c in chats.iloc[::-1].iterrows():
-            with st.chat_message("user"):
-                st.write(c["query"])
-            with st.chat_message("assistant"):
-                st.write(c["response"])
-                st.caption(str(c["timestamp"]))
+            q = html.escape(str(c["query"]))
+            r = html.escape(str(c["response"]))
+            ts = html.escape(str(c["timestamp"]))
+            bubble_html.append(f'<div class="mm-chat-msg mm-user">{q}</div>')
+            bubble_html.append(f'<div class="mm-chat-msg mm-bot">{r}\n\n{ts}</div>')
+        bubble_html.append("</div>")
+        st.markdown("".join(bubble_html), unsafe_allow_html=True)
+    else:
+        st.info("No chat history yet. Ask your first question.")
 
-    prompt = st.chat_input("Message the bot…")
-    if not prompt or not str(prompt).strip():
+    with st.form("chat_prompt_form", clear_on_submit=True):
+        prompt = st.text_input("Message the bot...", key="chat_prompt_input")
+        submitted = st.form_submit_button("Send", use_container_width=True)
+    if not submitted or not prompt or not str(prompt).strip():
         return
 
     q = str(prompt).strip()
     try:
-        recs = recommend(q) or []
-        top = recs[:6]
-        if top:
-            lines = []
-            for m in top:
-                t = m.get("title")
-                r = m.get("rating")
-                if t:
-                    lines.append(f"• {t}" + (f" (rating {r})" if r is not None else ""))
-            answer = "Here are some picks that match your message:\n" + "\n".join(lines)
+        catalog_answer = _answer_catalog_questions(q)
+        if catalog_answer:
+            answer = catalog_answer
         else:
-            answer = (
-                "I couldn’t find strong matches in the catalog. "
-                "Try a movie title, actor name, genre, or mood (e.g. “feel-good comedy”)."
-            )
+            recs = recommend(q) or []
+            top = recs[:6]
+            if top:
+                answer = _format_recommendation_answer(q, top)
+            else:
+                answer = (
+                    "### I could not find a strong match\n"
+                    "- Try full movie names, actors, genres, moods, or years.\n"
+                    "- Example: `thriller movies like Inception` or `feel-good comedy`."
+                )
     except Exception as e:
-        answer = f"Sorry, something went wrong while searching: {e}"
+        answer = f"### Sorry, I hit an error\n`{e}`"
 
     try:
         with engine.begin() as conn:

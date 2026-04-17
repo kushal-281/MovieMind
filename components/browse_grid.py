@@ -5,7 +5,9 @@ import streamlit as st
 TMDB_IMG = "https://image.tmdb.org/t/p/w500"
 
 
-def render_movie_grid(movies, page_key_prefix: str = "grid"):
+def render_movie_grid(
+    movies, page_key_prefix: str = "grid", show_row_dividers: bool = False
+):
     """
     movies: iterable of dicts with keys movie_id, title, poster_path, vote_average (optional).
     """
@@ -54,5 +56,8 @@ def render_movie_grid(movies, page_key_prefix: str = "grid"):
 
                 btn_key = f"{page_key_prefix}_m_{mid}_{i}_{j}"
                 if st.button("Movie details", key=btn_key, use_container_width=True):
+                    st.session_state["selected_movie_id"] = str(mid)
                     st.query_params["id"] = str(mid)
                     st.switch_page("pages/movie_detail.py")
+        if show_row_dividers:
+            st.markdown("<hr>", unsafe_allow_html=True)

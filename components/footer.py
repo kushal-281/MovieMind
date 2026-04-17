@@ -42,6 +42,7 @@ def show_footer():
 
         st.page_link("pages/about.py", label="About Us")
         st.page_link("pages/contact.py", label="Contact Us")
+        st.page_link("pages/faq.py", label="FAQ")
         st.page_link("pages/privacy.py", label="Privacy Policy")
         st.page_link("pages/terms.py", label="Terms & Conditions")
 

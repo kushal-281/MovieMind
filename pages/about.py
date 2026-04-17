@@ -42,24 +42,25 @@ body {
 
 /* Card container */
 .card {
-    background: #161b22;
+    background: linear-gradient(145deg, #1a2030, #151826);
     padding: 25px;
     border-radius: 15px;
     transition: 0.3s;
     height: 100%;
+    border: 1px solid rgba(120, 145, 255, 0.35);
 }
 
 /* Hover effect */
 .card:hover {
     transform: translateY(-10px);
-    box-shadow: 0px 10px 25px rgba(255,255,255,0.1);
+    box-shadow: 0px 10px 25px rgba(109, 156, 255, 0.2);
 }
 
 /* Section title */
 .section-title {
     font-size: 22px;
     font-weight: bold;
-    color: white;
+    color: #dbe4ff;
     margin-bottom: 10px;
 }
 
@@ -74,9 +75,10 @@ body {
 .team-card {
     text-align: center;
     padding: 20px;
-    background: #161b22;
+    background: linear-gradient(160deg, #1f2134, #181b2b);
     border-radius: 15px;
     transition: 0.3s;
+    border: 1px solid rgba(140, 162, 255, 0.3);
 }
 
 .team-card:hover {

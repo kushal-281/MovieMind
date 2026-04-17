@@ -2,18 +2,62 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from sqlalchemy import text
+from datetime import datetime
+import os
+import smtplib
+from email.mime.text import MIMEText
 
-from config.database import engine
+from config.database import engine, ensure_schema
+
+
+def _send_reply_email(to_email: str, subject: str, reply_text: str):
+    host = os.getenv("MOVIEMIND_SMTP_HOST")
+    port = int(os.getenv("MOVIEMIND_SMTP_PORT", "587"))
+    sender = os.getenv("MOVIEMIND_SMTP_USER")
+    password = os.getenv("MOVIEMIND_SMTP_PASS")
+    if not all([host, sender, password]):
+        return False, "SMTP env vars not configured (MOVIEMIND_SMTP_HOST/USER/PASS)."
+    try:
+        msg = MIMEText(reply_text, "plain", "utf-8")
+        msg["Subject"] = subject
+        msg["From"] = sender
+        msg["To"] = to_email
+        with smtplib.SMTP(host, port, timeout=20) as server:
+            server.starttls()
+            server.login(sender, password)
+            server.sendmail(sender, [to_email], msg.as_string())
+        return True, "Reply email sent."
+    except Exception as e:
+        return False, str(e)
 
 
 def show_admin_dashboard():
     """Admin view: users, time on site, search and chatbot activity."""
+    ensure_schema()
     if not st.session_state.get("user") or st.session_state.user.get("role") != "admin":
         st.error("Unauthorized Access")
         return
 
+    st.markdown(
+        """
+        <style>
+        .admin-title {
+            color: #d7e3ff;
+            font-weight: 700;
+        }
+        div[data-testid="stTabs"] button {
+            color: #b8c9ff;
+            font-weight: 600;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
     st.title("Admin Dashboard")
-    tab_users, tab_history, tab_chat = st.tabs(["Users", "User History", "Chatbot History"])
+    tab_users, tab_history, tab_chat, tab_contact, tab_faq = st.tabs(
+        ["Users", "User History", "Chatbot History", "Contact Replies", "FAQ Manager"]
+    )
 
     with engine.connect() as conn:
         with tab_users:
@@ -131,3 +175,143 @@ def show_admin_dashboard():
                     st.plotly_chart(fig4, use_container_width=True)
             except Exception:
                 st.info("No chat_logs table yet - run DB migration and generate chat activity.")
+
+        with tab_contact:
+            st.subheader("📨 Contact Us - Reply Panel")
+            contact_df = pd.read_sql(
+                text(
+                    """
+                    SELECT message_id, name, email, subject, message, status, created_at, replied_at
+                    FROM contact_messages
+                    ORDER BY created_at DESC
+                    LIMIT 300
+                    """
+                ),
+                conn,
+            )
+            if contact_df.empty:
+                st.info("No contact messages yet.")
+            else:
+                st.dataframe(contact_df, use_container_width=True, height=280)
+                options = contact_df.apply(
+                    lambda r: f"#{int(r['message_id'])} | {r['name']} | {r['email']} | {r['status']}",
+                    axis=1,
+                ).tolist()
+                selected = st.selectbox("Select user query", options, key="contact_msg_selector")
+                selected_id = int(selected.split("|")[0].replace("#", "").strip())
+                row = contact_df[contact_df["message_id"] == selected_id].iloc[0]
+                st.write(f"**Question:** {row['message']}")
+                reply_text = st.text_area("Admin reply", key=f"reply_text_{selected_id}", height=150)
+                c1, c2 = st.columns([1, 1])
+                with c1:
+                    if st.button("Send Reply", key=f"send_reply_{selected_id}", use_container_width=True):
+                        if not str(reply_text).strip():
+                            st.error("Reply cannot be empty.")
+                        else:
+                            email_subject = f"Re: {row['subject'] or 'Your MovieMind query'}"
+                            ok, detail = _send_reply_email(row["email"], email_subject, reply_text.strip())
+                            status_txt = "replied_email" if ok else "replied_saved_only"
+                            with engine.begin() as c2conn:
+                                c2conn.execute(
+                                    text(
+                                        """
+                                        UPDATE contact_messages
+                                        SET admin_reply = :reply,
+                                            replied_at = :replied_at,
+                                            replied_by = :admin_id,
+                                            status = :status
+                                        WHERE message_id = :mid
+                                        """
+                                    ),
+                                    {
+                                        "reply": reply_text.strip(),
+                                        "replied_at": datetime.now(),
+                                        "admin_id": int(st.session_state.user["user_id"]),
+                                        "status": status_txt,
+                                        "mid": selected_id,
+                                    },
+                                )
+                            if ok:
+                                st.success("Reply sent to user email and saved.")
+                            else:
+                                st.warning(f"Reply saved in DB but email failed: {detail}")
+                            st.rerun()
+                with c2:
+                    if st.button("Mark as Closed", key=f"close_msg_{selected_id}", use_container_width=True):
+                        with engine.begin() as c2conn:
+                            c2conn.execute(
+                                text(
+                                    "UPDATE contact_messages SET status = 'closed' WHERE message_id = :mid"
+                                ),
+                                {"mid": selected_id},
+                            )
+                        st.success("Marked as closed.")
+                        st.rerun()
+
+        with tab_faq:
+            st.subheader("❓ FAQ Management")
+            with st.form("faq_add_form", clear_on_submit=True):
+                new_q = st.text_input("FAQ Question")
+                new_a = st.text_area("FAQ Answer", height=120)
+                add_faq = st.form_submit_button("Add FAQ")
+            if add_faq:
+                if not new_q.strip() or not new_a.strip():
+                    st.error("Question and answer both are required.")
+                else:
+                    with engine.begin() as c3conn:
+                        c3conn.execute(
+                            text(
+                                """
+                                INSERT INTO faqs (question, answer, is_active, created_by)
+                                VALUES (:q, :a, 1, :uid)
+                                """
+                            ),
+                            {"q": new_q.strip(), "a": new_a.strip(), "uid": int(st.session_state.user["user_id"])},
+                        )
+                    st.success("FAQ added.")
+                    st.rerun()
+
+            faq_df = pd.read_sql(
+                text(
+                    """
+                    SELECT faq_id, question, answer, is_active, updated_at
+                    FROM faqs
+                    ORDER BY updated_at DESC, faq_id DESC
+                    """
+                ),
+                conn,
+            )
+            if faq_df.empty:
+                st.info("No FAQ in DB yet.")
+            else:
+                st.dataframe(faq_df, use_container_width=True, height=280)
+                faq_options = faq_df["faq_id"].astype(int).tolist()
+                pick = st.selectbox("Select FAQ ID", faq_options, key="faq_pick")
+                faq_row = faq_df[faq_df["faq_id"] == pick].iloc[0]
+                uq = st.text_input("Edit Question", value=str(faq_row["question"]), key=f"faq_q_{pick}")
+                ua = st.text_area("Edit Answer", value=str(faq_row["answer"]), key=f"faq_a_{pick}", height=130)
+                c3, c4 = st.columns(2)
+                with c3:
+                    if st.button("Update FAQ", key=f"faq_update_{pick}", use_container_width=True):
+                        with engine.begin() as c3conn:
+                            c3conn.execute(
+                                text(
+                                    """
+                                    UPDATE faqs
+                                    SET question = :q, answer = :a
+                                    WHERE faq_id = :fid
+                                    """
+                                ),
+                                {"q": uq.strip(), "a": ua.strip(), "fid": int(pick)},
+                            )
+                        st.success("FAQ updated.")
+                        st.rerun()
+                with c4:
+                    if st.button("Deactivate FAQ", key=f"faq_deactivate_{pick}", use_container_width=True):
+                        with engine.begin() as c3conn:
+                            c3conn.execute(
+                                text("UPDATE faqs SET is_active = 0 WHERE faq_id = :fid"),
+                                {"fid": int(pick)},
+                            )
+                        st.success("FAQ deactivated.")
+                        st.rerun()

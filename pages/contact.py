@@ -3,9 +3,10 @@ from sqlalchemy import text
 
 from components.footer import show_footer
 from components.header_without_search import header_without_search
-from config.database import engine
+from config.database import engine, ensure_schema
 
 st.set_page_config(page_title="Contact Us - MovieMind", layout="wide")
+ensure_schema()
 header_without_search()
 
 st.title("Contact MovieMind")

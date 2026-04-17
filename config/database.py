@@ -51,6 +51,30 @@ def ensure_schema():
             try:
                 conn.execute(
                     text(
+                        "ALTER TABLE contact_messages ADD COLUMN admin_reply TEXT NULL"
+                    )
+                )
+            except Exception:
+                pass
+            try:
+                conn.execute(
+                    text(
+                        "ALTER TABLE contact_messages ADD COLUMN replied_at DATETIME NULL"
+                    )
+                )
+            except Exception:
+                pass
+            try:
+                conn.execute(
+                    text(
+                        "ALTER TABLE contact_messages ADD COLUMN replied_by INT NULL"
+                    )
+                )
+            except Exception:
+                pass
+            try:
+                conn.execute(
+                    text(
                         """
                         CREATE TABLE IF NOT EXISTS chat_logs (
                             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -59,6 +83,25 @@ def ensure_schema():
                             response TEXT NOT NULL,
                             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
                             FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+                        )
+                        """
+                    )
+                )
+            except Exception:
+                pass
+            try:
+                conn.execute(
+                    text(
+                        """
+                        CREATE TABLE IF NOT EXISTS faqs (
+                            faq_id INT AUTO_INCREMENT PRIMARY KEY,
+                            question VARCHAR(400) NOT NULL,
+                            answer TEXT NOT NULL,
+                            is_active TINYINT(1) DEFAULT 1,
+                            created_by INT NULL,
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                            FOREIGN KEY (created_by) REFERENCES users(user_id) ON DELETE SET NULL
                         )
                         """
                     )

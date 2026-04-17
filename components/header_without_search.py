@@ -53,6 +53,7 @@ def header_without_search():
         padding: 0.35rem 0.75rem;
         font-weight: 500;
         margin-top: 8px;
+        margin-bottom: 8px; /* Change this if you want more/less button gap */
     }
 
     .mm-header-bar .stButton > button:hover {
@@ -67,6 +68,9 @@ def header_without_search():
         background: #f4f4f5;
         border-radius: 999px;
         font-size: 0.95rem;
+        font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+        font-weight: 600;
+        letter-spacing: 0.2px;
         display: inline-block;
     }
     </style>

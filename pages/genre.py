@@ -45,7 +45,7 @@ if genres.empty:
     st.warning("No genres found in the database.")
     st.stop()
 
-labels = [f"{r['genre_name']} (id {r['genre_id']})" for _, r in genres.iterrows()]
+labels = [str(r["genre_name"]) for _, r in genres.iterrows()]
 id_by_label = {labels[i]: int(genres.iloc[i]["genre_id"]) for i in range(len(labels))}
 
 
@@ -79,9 +79,9 @@ else:
     existing = st.session_state.get(k_rows, [])
     st.session_state[k_rows] = existing + batch_rows
 rows = st.session_state.get(k_rows, [])
-st.caption(f"Showing {len(rows)} movies for **{label.split(' (')[0]}**.")
+st.caption(f"Showing {len(rows)} movies for **{label}**.")
 
-render_movie_grid(rows, page_key_prefix="genre")
+render_movie_grid(rows, page_key_prefix="genre", show_row_dividers=True)
 
 if len(batch_rows) == PAGE:
     if st.button("Show more movies", key="genre_more"):
