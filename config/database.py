@@ -1,13 +1,18 @@
 from sqlalchemy import create_engine, text
+import streamlit as st
+# DB_USER = "root"
+# DB_PASSWORD = "Kushal%402004"   # FIXED
+# DB_HOST = "localhost"
+# DB_NAME = "movieMind"
 
-DB_USER = "root"
-DB_PASSWORD = "Kushal%402004"   # FIXED
-DB_HOST = "localhost"
-DB_NAME = "movieMind"
+# localhost credientials of mysql 
+# engine = create_engine(
+#     f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:3306/{DB_NAME}"
+# )
 
-engine = create_engine(
-    f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:3306/{DB_NAME}"
-)
+# if this not working properly then remove the railway cloud code
+# use railway cloud and mysql to run proejct on streamlit cloud
+engine = create_engine(st.secrets["DATABASE_URL"])
 
 
 _schema_ready = False
