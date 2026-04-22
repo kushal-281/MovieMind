@@ -32,7 +32,7 @@ def show_footer():
     with col1:
         st.markdown('<div class="footer-title">Address</div>', unsafe_allow_html=True)
         st.write("MovieMind Pvt. Ltd.")
-        st.write("Panipat, Haryana")
+        st.write("Sonipat, Haryana")
         st.write("India - 132103")
         st.write("Email: support@moviemind.com")
 

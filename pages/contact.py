@@ -49,6 +49,6 @@ if submitted:
 
 st.markdown("---")
 st.write("Email: support@moviemind.com")
-st.write("Location: Panipat, Haryana, India")
+st.write("Location: Sonipat, Haryana, India")
 
 show_footer()

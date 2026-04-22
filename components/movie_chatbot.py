@@ -70,6 +70,63 @@ def _answer_catalog_questions(prompt: str) -> str | None:
     return None
 
 
+def _answer_website_questions(prompt: str) -> str | None:
+    q = prompt.lower()
+
+    if any(k in q for k in ["hello", "hi", "hey", "good morning", "good evening"]):
+        return (
+            "Hi! I can help with:\n"
+            "- Movie recommendations\n"
+            "- Top/latest movies in catalog\n"
+            "- How to use MovieMind pages (search, profile, favorites, contact)\n"
+            "- FAQ/help questions"
+        )
+    if any(k in q for k in ["profile", "account", "analytics"]):
+        return (
+            "Open your **Profile** page to use chatbot, view search/chat history, "
+            "and check your personal analytics."
+        )
+    if any(k in q for k in ["admin", "dashboard", "manage faq", "contact reply"]):
+        return (
+            "Admins can open **Admin Profile** to access the dashboard, user activity, "
+            "chat logs, contact reply panel, and FAQ manager."
+        )
+    if any(k in q for k in ["forgot password", "reset password", "otp"]):
+        return (
+            "Use the **Forgot Password** button on the login page. "
+            "MovieMind will email an OTP. Verify OTP and set your new password."
+        )
+    if any(k in q for k in ["contact", "support", "help email"]):
+        return "You can use the **Contact** page or email support at `support@moviemind.com`."
+    return None
+
+
+def _answer_faq(prompt: str) -> str | None:
+    try:
+        with engine.connect() as conn:
+            row = conn.execute(
+                text(
+                    """
+                    SELECT question, answer
+                    FROM faqs
+                    WHERE is_active = 1
+                      AND (
+                        LOWER(question) LIKE CONCAT('%', LOWER(:q), '%')
+                        OR LOWER(:q) LIKE CONCAT('%', LOWER(question), '%')
+                      )
+                    ORDER BY updated_at DESC
+                    LIMIT 1
+                    """
+                ),
+                {"q": prompt.strip()},
+            ).fetchone()
+            if row:
+                return f"### FAQ match\n**Q:** {row[0]}\n\n**A:** {row[1]}"
+    except Exception:
+        return None
+    return None
+
+
 def render_movie_chatbot(user_id: int):
     st.subheader("💬 MovieMind Assistant")
     st.caption("Ask about movies, get recommendations, or describe what you feel like watching.")
@@ -144,8 +201,14 @@ def render_movie_chatbot(user_id: int):
 
     q = str(prompt).strip()
     try:
+        website_answer = _answer_website_questions(q)
+        faq_answer = _answer_faq(q)
         catalog_answer = _answer_catalog_questions(q)
-        if catalog_answer:
+        if website_answer:
+            answer = website_answer
+        elif faq_answer:
+            answer = faq_answer
+        elif catalog_answer:
             answer = catalog_answer
         else:
             recs = recommend(q) or []

@@ -4,8 +4,11 @@ from config.database import engine
 import base64
 
 from components.auth import login_user
+from components.email_utils import is_valid_email
+from components.theme import apply_theme_css
 
 st.set_page_config(layout="wide")
+apply_theme_css()
 
 # ---------------- LOAD LOGO ----------------
 def get_base64_image(path):
@@ -99,6 +102,14 @@ with col2:
 
             else:
                 st.error("Invalid credentials")
+
+        if st.button("Forgot Password?", key="forgot_password_btn"):
+            if email and not is_valid_email(email):
+                st.error("Please enter a valid email before continuing.")
+            else:
+                if email:
+                    st.session_state["reset_email_prefill"] = email.strip()
+                st.switch_page("pages/forgot_password.py")
 
         # SIGNUP TEXT
         st.markdown("<p style='text-align:center;'>Don't have an account?</p>", unsafe_allow_html=True)

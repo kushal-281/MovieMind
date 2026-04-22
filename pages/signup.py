@@ -5,8 +5,19 @@ from config.database import ensure_schema
 import base64
 import random
 import re
+from datetime import datetime
+
+from components.email_utils import (
+    generate_otp,
+    is_strong_password,
+    is_valid_email,
+    otp_expiry,
+    send_otp_email,
+)
+from components.theme import apply_theme_css
 
 st.set_page_config(layout="wide")
+apply_theme_css()
 
 # ---------------- LOAD LOGO ----------------
 def get_base64_image(path):
@@ -33,6 +44,8 @@ def password_strength_label(password: str):
 if "captcha_a" not in st.session_state:
     st.session_state.captcha_a = random.randint(1, 9)
     st.session_state.captcha_b = random.randint(1, 9)
+if "signup_pending" not in st.session_state:
+    st.session_state.signup_pending = None
 
 # ---------------- GLOBAL STYLE ----------------
 st.markdown("""
@@ -104,9 +117,10 @@ with col2:
             f"What is {st.session_state.captcha_a} + {st.session_state.captcha_b} ?",
             key="captcha_input"
         )
+        otp_input = st.text_input("Enter OTP (after sending)", key="signup_otp_input")
 
-        # ---------------- SIGNUP BUTTON ----------------
-        if st.button("Signup Now", key="signup_btn"):
+        # ---------------- SEND OTP BUTTON ----------------
+        if st.button("Send OTP", key="signup_send_otp_btn"):
 
             if not username or not email or not password:
                 st.error("All fields are required!")
@@ -117,19 +131,15 @@ with col2:
             elif not re.match(r"^[A-Za-z0-9_]+$", username):
                 st.error("Username can only contain letters, numbers, and underscore!")
 
-            elif not re.match(r"^[\\w\\.-]+@[\\w\\.-]+\\.\\w+$", email):
+            elif not is_valid_email(email):
                 st.error("Invalid email format!")
 
-            elif len(password) < 8:
-                st.error("Password must be at least 8 characters!")
-
-            elif not any(char.isdigit() for char in password):
-                st.error("Password must contain at least 1 number!")
-
-            elif not any(not ch.isalnum() for ch in password):
-                st.error("Password must contain at least 1 special character!")
-
             else:
+                ok_pw, pw_msg = is_strong_password(password)
+                if not ok_pw:
+                    st.error(pw_msg)
+                    st.stop()
+
                 correct_answer = st.session_state.captcha_a + st.session_state.captcha_b
 
                 if not captcha_answer.isdigit() or int(captcha_answer) != correct_answer:
@@ -158,20 +168,54 @@ with col2:
                             if existing:
                                 st.error("Username or email already exists.")
                                 st.stop()
-                            conn.execute(query, {
-                                "username": username.strip(),
-                                "email": email.strip(),
-                                "password": password
-                            })
+                    except Exception:
+                        st.error("Could not validate account uniqueness. Try again.")
+                        st.stop()
 
-                        st.success("Account created successfully!")
+                    otp_code = generate_otp()
+                    ok_mail, detail = send_otp_email(email.strip(), otp_code, "signup verification")
+                    if not ok_mail:
+                        st.error(f"OTP email failed: {detail}")
+                        st.stop()
+                    st.session_state.signup_pending = {
+                        "username": username.strip(),
+                        "email": email.strip(),
+                        "password": password,
+                        "otp": otp_code,
+                        "expires_at": otp_expiry().isoformat(),
+                    }
+                    st.success("OTP sent to your email. Enter it below and click Create Account.")
 
-                        # Reset captcha
-                        st.session_state.captcha_a = random.randint(1, 9)
-                        st.session_state.captcha_b = random.randint(1, 9)
+        # ---------------- VERIFY OTP + CREATE ACCOUNT ----------------
+        if st.button("Verify OTP & Create Account", key="signup_verify_btn"):
+            pending = st.session_state.get("signup_pending")
+            if not pending:
+                st.error("Please click Send OTP first.")
+            elif not otp_input.strip():
+                st.error("Please enter OTP.")
+            elif datetime.now() > datetime.fromisoformat(pending["expires_at"]):
+                st.error("OTP expired. Please request a new OTP.")
+                st.session_state.signup_pending = None
+            elif otp_input.strip() != pending["otp"]:
+                st.error("Invalid OTP.")
+            else:
+                query = text("""
+                INSERT INTO users (username,email,password,role)
+                VALUES (:username,:email,:password,'user')
+                """)
+                try:
+                    with engine.begin() as conn:
+                        conn.execute(query, {
+                            "username": pending["username"],
+                            "email": pending["email"],
+                            "password": pending["password"],
+                        })
+                    st.success("Account created successfully! Please login.")
+                    st.session_state.signup_pending = None
+                    st.session_state.captcha_a = random.randint(1, 9)
+                    st.session_state.captcha_b = random.randint(1, 9)
+                except Exception:
+                    st.error("Email/username may already exist or database error.")
 
-                        if st.button("Go to Login", key="goto_login_btn"):
-                            st.switch_page("pages/login.py")
-
-                    except:
-                        st.error("Email already exists or database error.")
+        if st.button("Go to Login", key="goto_login_btn"):
+            st.switch_page("pages/login.py")

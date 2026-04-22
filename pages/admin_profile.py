@@ -17,11 +17,38 @@ if not user or user.get("role") != "admin":
 
 show_header()
 
+st.markdown(
+    """
+    <style>
+    .admin-card {
+        background: linear-gradient(135deg, #3d1140 0%, #6f1d64 55%, #92322a 100%);
+        border: 1px solid rgba(255, 177, 140, 0.35);
+        border-radius: 14px;
+        padding: 16px;
+        color: #fff1ea;
+        margin-bottom: 12px;
+    }
+    .admin-card small {
+        color: #ffd9c7;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 st.title("🛡️ Admin account")
 
 c1, c2 = st.columns([1, 2])
 with c1:
-    st.write(f"**Username:** {user['username']}")
+    st.markdown(
+        f"""
+        <div class="admin-card">
+            <div><small>Admin username</small></div>
+            <div><b>{user['username']}</b></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     try:
         with engine.connect() as conn:
             row = conn.execute(
@@ -31,9 +58,25 @@ with c1:
                 {"uid": int(user["user_id"])},
             ).fetchone()
         if row:
-            st.write(f"**Email:** {row[0]}")
+            st.markdown(
+                f"""
+                <div class="admin-card">
+                    <div><small>Email</small></div>
+                    <div><b>{row[0]}</b></div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
             ts = int(row[1] or 0)
-            st.write(f"**Your time on site:** {ts // 3600}h {(ts % 3600) // 60}m")
+            st.markdown(
+                f"""
+                <div class="admin-card">
+                    <div><small>Your time on site</small></div>
+                    <div><b>{ts // 3600}h {(ts % 3600) // 60}m</b></div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
     except Exception:
         pass
 

@@ -7,12 +7,14 @@ from sqlalchemy import text
 from components.header import show_header
 from components.auth import restore_session
 from components.movie_chatbot import render_movie_chatbot
+from components.theme import THEMES, init_theme, save_theme
 from cookies import cookies
 from config.database import engine
 
 st.set_page_config(layout="wide")
 
 restore_session()
+init_theme()
 
 if not st.session_state.get("user"):
     st.switch_page("app.py")
@@ -25,12 +27,40 @@ user_id = int(user["user_id"])
 
 show_header()
 
+st.markdown(
+    """
+    <style>
+    .user-card {
+        background: linear-gradient(135deg, #1f114a 0%, #3f1e75 60%, #1a3a7a 100%);
+        border: 1px solid rgba(170, 142, 255, 0.35);
+        border-radius: 14px;
+        padding: 16px;
+        color: #f4f0ff;
+        margin-bottom: 10px;
+    }
+    .user-card small {
+        color: #d8ceff;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 col1, col2 = st.columns([1, 3])
 
 with col1:
     st.title("👤 Profile")
-    st.write(f"**Username:** {user['username']}")
-    st.write(f"**Role:** {user['role']}")
+    st.markdown(
+        f"""
+        <div class="user-card">
+            <div><small>Username</small></div>
+            <div><b>{user['username']}</b></div>
+            <div style="margin-top:8px;"><small>Role</small></div>
+            <div><b>{user['role']}</b></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     try:
         with engine.connect() as c2:
             row = c2.execute(
@@ -41,15 +71,21 @@ with col1:
             ).fetchone()
         if row:
             total_s = int(row[0] or 0)
-            st.write(
-                f"**Time on site (approx.):** {total_s // 3600}h {(total_s % 3600) // 60}m {total_s % 60}s"
+            st.markdown(
+                f"""
+                <div class="user-card">
+                    <div><small>Time on site (approx.)</small></div>
+                    <div><b>{total_s // 3600}h {(total_s % 3600) // 60}m {total_s % 60}s</b></div>
+                </div>
+                """,
+                unsafe_allow_html=True,
             )
     except Exception:
         pass
     st.divider()
 
     tab = st.radio(
-        "Menu", ["Chat Bot", "Chatbot History", "Search History", "Analytics"]
+        "Menu", ["Chat Bot", "Chatbot History", "Search History", "Analytics", "Theme"]
     )
 
     if st.button("Logout", key="profile_logout_btn"):
@@ -290,6 +326,24 @@ with col2:
                 )
                 fig_l.update_traces(line_color="#2e8b57", marker_color="#2e8b57")
                 st.plotly_chart(fig_l, use_container_width=True)
+
+        elif tab == "Theme":
+            st.subheader("🎨 Theme Settings")
+            current = st.session_state.get("theme_mode", "light")
+            theme_options = list(THEMES.keys())
+            st.caption("Each row has one theme. Click Apply on the right.")
+            for mode in theme_options:
+                c_name, c_btn = st.columns([5, 1])
+                with c_name:
+                    label = mode.title()
+                    if mode == current:
+                        label += " (Current)"
+                    st.markdown(f"**{label}**")
+                with c_btn:
+                    if st.button("Apply", key=f"apply_theme_{mode}", use_container_width=True):
+                        save_theme(mode)
+                        st.success(f"Theme updated to {mode}.")
+                        st.rerun()
 
     except Exception as e:
         st.error(f"⚠️ Database error: {e}")

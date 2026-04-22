@@ -4,6 +4,7 @@ import streamlit as st
 from sqlalchemy import text
 
 from components.auth import restore_session, track_site_time
+from components.theme import apply_theme_css
 from config.database import engine
 
 if "search_movie" not in st.session_state:
@@ -21,6 +22,7 @@ def get_base64_image(path):
 def show_header():
     restore_session()
     track_site_time()
+    apply_theme_css()
 
     logo = get_base64_image("assets/movieMind.png")
 
@@ -44,10 +46,7 @@ def show_header():
     }
 
     .mm-header-bar .stButton > button {
-        background: linear-gradient(180deg, #5a5a5a 0%, #707070 100%);
-        color: white;
         border-radius: 8px;
-        border: none;
         padding: 0.35rem 0.75rem;
         font-weight: 500;
         margin-top: 8px;
@@ -55,8 +54,7 @@ def show_header():
     }
 
     .mm-header-bar .stButton > button:hover {
-        background: linear-gradient(180deg, #4a4a4a 0%, #606060 100%);
-        color: white;
+        filter: brightness(0.98);
     }
 
     .mm-user-pill {
