@@ -4,12 +4,15 @@ from sqlalchemy import text
 from admin.dashboard import show_admin_dashboard
 from components.auth import restore_session
 from components.header import show_header
+from components.theme import apply_theme_css, init_theme
 from cookies import cookies
 from config.database import engine
 
 st.set_page_config(layout="wide")
 
 restore_session()
+init_theme()
+apply_theme_css()
 
 user = st.session_state.get("user")
 if not user or user.get("role") != "admin":
@@ -21,16 +24,15 @@ st.markdown(
     """
     <style>
     .admin-card {
-        background: linear-gradient(135deg, #3d1140 0%, #6f1d64 55%, #92322a 100%);
-        border: 1px solid rgba(255, 177, 140, 0.35);
+        background: var(--mm-card-bg);
+        border: 1px solid var(--mm-border);
         border-radius: 14px;
         padding: 16px;
-        color: #fff1ea;
+        color: var(--mm-text);
         margin-bottom: 12px;
     }
-    .admin-card small {
-        color: #ffd9c7;
-    }
+    .admin-card small { color: var(--mm-muted) !important; }
+    .admin-card b { color: var(--mm-text) !important; }
     </style>
     """,
     unsafe_allow_html=True,

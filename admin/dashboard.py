@@ -8,6 +8,8 @@ import smtplib
 from email.mime.text import MIMEText
 
 from config.database import engine, ensure_schema
+from components.add_movie_form import render_add_movie_form
+from components.movie_db import get_pending_movies, set_movie_approval
 
 
 def _send_reply_email(to_email: str, subject: str, reply_text: str):
@@ -55,8 +57,16 @@ def show_admin_dashboard():
     )
 
     st.title("Admin Dashboard")
-    tab_users, tab_history, tab_chat, tab_contact, tab_faq = st.tabs(
-        ["Users", "User History", "Chatbot History", "Contact Replies", "FAQ Manager"]
+    tab_users, tab_add, tab_movies, tab_history, tab_chat, tab_contact, tab_faq = st.tabs(
+        [
+            "Users",
+            "Add Movie",
+            "Movie approvals",
+            "User History",
+            "Chatbot History",
+            "Contact Replies",
+            "FAQ Manager",
+        ]
     )
 
     with engine.connect() as conn:
@@ -85,6 +95,55 @@ def show_admin_dashboard():
                 )
                 st.plotly_chart(fig, use_container_width=True)
             st.dataframe(users_df, use_container_width=True, height=320)
+
+        with tab_add:
+            render_add_movie_form(
+                int(st.session_state.user["user_id"]),
+                auto_approve=True,
+                form_key="admin_add_movie",
+            )
+
+        with tab_movies:
+            st.subheader("🎬 Pending movies (user submissions)")
+            pending = get_pending_movies()
+            if pending.empty:
+                st.success("No movies waiting for approval.")
+            else:
+                st.dataframe(pending, use_container_width=True, height=240)
+                options = pending.apply(
+                    lambda r: f"#{int(r['movie_id'])} — {r['title']}",
+                    axis=1,
+                ).tolist()
+                pick = st.selectbox("Select movie to review", options, key="pending_movie_pick")
+                mid = int(pick.split("—")[0].replace("#", "").strip())
+                row = pending[pending["movie_id"] == mid].iloc[0]
+                st.markdown(f"**Title:** {row['title']}")
+                st.markdown(f"**Industry:** {row.get('industry', 'N/A')}")
+                st.markdown(f"**Submitted by:** {row.get('submitted_by_name', 'Unknown')}")
+                st.write(str(row.get("overview", ""))[:800])
+                if row.get("poster_path"):
+                    path = str(row["poster_path"])
+                    url = path if path.startswith("http") else f"https://image.tmdb.org/t/p/w342{path}"
+                    st.image(url, width=200)
+                c_yes, c_no = st.columns(2)
+                with c_yes:
+                    if st.button(
+                        "Yes — show on website",
+                        key=f"approve_{mid}",
+                        use_container_width=True,
+                    ):
+                        set_movie_approval(mid, True)
+                        st.success(f"Movie #{mid} is now visible on the site.")
+                        st.rerun()
+                with c_no:
+                    if st.button(
+                        "No — hide from website",
+                        key=f"reject_{mid}",
+                        use_container_width=True,
+                    ):
+                        set_movie_approval(mid, False)
+                        st.warning(f"Movie #{mid} will not appear on the site.")
+                        st.rerun()
 
         with tab_history:
             st.subheader("🔎 Searches per user")

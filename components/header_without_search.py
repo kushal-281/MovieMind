@@ -3,7 +3,7 @@ import streamlit as st
 from sqlalchemy import text
 
 from components.auth import restore_session, track_site_time
-from components.theme import apply_theme_css
+from components.theme import apply_theme_css, init_theme
 from config.database import engine
 
 # ---------------- SESSION DEFAULTS ----------------
@@ -23,6 +23,7 @@ def get_base64_image(path):
 # ---------------- HEADER ----------------
 def header_without_search():
     restore_session()
+    init_theme()
     track_site_time()
     apply_theme_css()
 
@@ -35,6 +36,16 @@ def header_without_search():
     #MainMenu {visibility:hidden;}
     footer {visibility:hidden;}
 
+    /* Header spacing knobs (change these later) */
+    :root {
+        --mm-header-btn-mt: 8px;      /* change button top margin */
+        --mm-header-btn-mb: 8px;      /* change button bottom margin */
+        --mm-header-logo-mt: 6px;     /* change logo top margin */
+        --mm-header-logo-mb: 4px;     /* change logo bottom margin */
+        --mm-user-pill-mt: 14px;      /* change username pill top margin */
+        --mm-user-pill-ml: 8px;       /* change username pill left margin */
+    }
+
     .block-container {
         padding-top: 0.5rem !important;
         max-width: 1350px;
@@ -43,7 +54,7 @@ def header_without_search():
 
     .mm-header-logo img {
         display: block;
-        margin: 6px 0 4px 0;
+        margin: var(--mm-header-logo-mt) 0 var(--mm-header-logo-mb) 0;
         border-radius: 4px;
     }
 
@@ -51,8 +62,8 @@ def header_without_search():
         border-radius: 8px;
         padding: 0.35rem 0.75rem;
         font-weight: 500;
-        margin-top: 8px;
-        margin-bottom: 8px; /* Change this if you want more/less button gap */
+        margin-top: var(--mm-header-btn-mt);
+        margin-bottom: var(--mm-header-btn-mb); /* Change this later for more/less button gap */
     }
 
     .mm-header-bar .stButton > button:hover {
@@ -60,8 +71,8 @@ def header_without_search():
     }
 
     .mm-user-pill {
-        margin-top: 14px;
-        margin-left: 8px;
+        margin-top: var(--mm-user-pill-mt);
+        margin-left: var(--mm-user-pill-ml);
         padding: 6px 10px;
         background: #f4f4f5;
         border-radius: 999px;

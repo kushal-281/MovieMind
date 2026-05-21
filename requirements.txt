@@ -9,3 +9,7 @@ passlib[bcrypt]
 python-dotenv
 joblib
 streamlit-cookies-manager
+fastapi
+uvicorn
+httpx
+openai

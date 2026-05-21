@@ -14,10 +14,12 @@ from components.email_utils import (
     otp_expiry,
     send_otp_email,
 )
-from components.theme import apply_theme_css
+from components.theme import apply_theme_css, auth_page_styles, init_theme
 
 st.set_page_config(layout="wide")
+init_theme()
 apply_theme_css()
+auth_page_styles()
 
 # ---------------- LOAD LOGO ----------------
 def get_base64_image(path):
@@ -47,57 +49,34 @@ if "captcha_a" not in st.session_state:
 if "signup_pending" not in st.session_state:
     st.session_state.signup_pending = None
 
-# ---------------- GLOBAL STYLE ----------------
-st.markdown("""
-<style>
-header {visibility:hidden;}
-#MainMenu {visibility:hidden;}
-footer {visibility:hidden;}
-
-.block-container {
-    max-width: 1250px;
-    margin-left: auto;
-    margin-right: auto;
-    padding-top: 0rem !important;
-}
-
-/* Buttons */
-div.stButton > button {
-    background-color: #007BFF;
-    color: white;
-    border-radius: 6px;
-    width: 100%;
-    margin-top: 10px;
-    transition: 0.3s;
-}
-
-/* Hover */
-div.stButton > button:hover {
-    background-color: #0056b3;
-    color: white;
-}
-</style>
-""", unsafe_allow_html=True)
-
 # ---------------- HEADER ----------------
-col1, col2 = st.columns([6,1])
+# col1, col2 = st.columns([6,1],gap="small")
 
-with col1:
-    st.markdown(
-        f"""
-        <a href="/" target="_self">
-            <img src="data:image/png;base64,{logo}" height="45" style="cursor:pointer;">
-        </a>
-        """,
-        unsafe_allow_html=True
-    )
+# with col1:
+#     st.markdown(
+#         f"""
+#         <div style=height:68px;display:flex;align-items:center;>
+#         <a href="/" target="_self">
+#             <img src="data:image/png;base64,{logo}" height="45" style="cursor:pointer; margin-bottom:5px;">
+#         </a>
+#         </div>
+#         """,
+#         unsafe_allow_html=True
+#     )
 
-st.divider()
+# st.divider()
 
 # ---------------- CENTER SIGNUP CARD ----------------
-col1, col2, col3 = st.columns([2,3,2])
+col1, col2, col3 = st.columns([1,3,1])
 
 with col2:
+    st.markdown("""
+    <style>
+    div[data-testid="stVerticalBlock"] > div:has(div[data-testid="stVerticalBlockBorderWrapper"]) {
+        margin-top: -20px !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     with st.container(border=True):
 
         st.markdown("### 📝 Signup")
@@ -120,7 +99,7 @@ with col2:
         otp_input = st.text_input("Enter OTP (after sending)", key="signup_otp_input")
 
         # ---------------- SEND OTP BUTTON ----------------
-        if st.button("Send OTP", key="signup_send_otp_btn"):
+        if st.button("Send OTP", key="signup_send_otp_btn", use_container_width=True):
 
             if not username or not email or not password:
                 st.error("All fields are required!")
@@ -187,7 +166,7 @@ with col2:
                     st.success("OTP sent to your email. Enter it below and click Create Account.")
 
         # ---------------- VERIFY OTP + CREATE ACCOUNT ----------------
-        if st.button("Verify OTP & Create Account", key="signup_verify_btn"):
+        if st.button("Verify OTP & Create Account", key="signup_verify_btn", use_container_width=True):
             pending = st.session_state.get("signup_pending")
             if not pending:
                 st.error("Please click Send OTP first.")
@@ -217,5 +196,5 @@ with col2:
                 except Exception:
                     st.error("Email/username may already exist or database error.")
 
-        if st.button("Go to Login", key="goto_login_btn"):
+        if st.button("Go to Login", key="goto_login_btn", use_container_width=True):
             st.switch_page("pages/login.py")

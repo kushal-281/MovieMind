@@ -37,7 +37,9 @@ CREATE TABLE IF NOT EXISTS movies (
     vote_average DECIMAL(3,1),
     vote_count INT,
     video BOOLEAN,
-    industry VARCHAR(50)                -- Hollywood / Bollywood / Tollywood / Other
+    industry VARCHAR(50),               -- Hollywood / Bollywood / Tollywood / Other (category)
+    is_approved TINYINT(1) DEFAULT 1,   -- 0 = hidden until admin approves user submission
+    submitted_by INT NULL               -- user who added the movie (FK users)
 );
 
 -- ===========================
@@ -131,7 +133,7 @@ CREATE TABLE IF NOT EXISTS ratings (
 );
 
 -- ===========================
--- 11. RECOMMENDATIONS
+-- 9. RECOMMENDATIONS
 -- ===========================
 CREATE TABLE IF NOT EXISTS recommendations (
     rec_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -144,7 +146,7 @@ CREATE TABLE IF NOT EXISTS recommendations (
 );
 
 -- ===========================
--- 12. CHAT LOGS
+-- 10. CHAT LOGS
 -- ===========================
 CREATE TABLE IF NOT EXISTS chat_logs (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -156,7 +158,7 @@ CREATE TABLE IF NOT EXISTS chat_logs (
 );
 
 -- ===========================
--- 13. CONTACT MESSAGES
+-- 11. CONTACT MESSAGES
 -- ===========================
 CREATE TABLE IF NOT EXISTS contact_messages (
     message_id INT AUTO_INCREMENT PRIMARY KEY,

@@ -5,6 +5,7 @@ from sqlalchemy import text
 from components.browse_grid import render_movie_grid
 from components.header import show_header
 from config.database import engine
+from components.movie_db import APPROVED_WHERE, APPROVED_WHERE_M
 
 st.set_page_config(layout="wide")
 
@@ -20,10 +21,11 @@ k_rows = "browse_industry_rows"
 with engine.connect() as conn:
     inds = pd.read_sql(
         text(
-            """
+            f"""
             SELECT DISTINCT industry
             FROM movies
             WHERE industry IS NOT NULL AND TRIM(industry) <> ''
+              AND {APPROVED_WHERE}
             ORDER BY industry
             """
         ),
@@ -52,10 +54,10 @@ sel = st.selectbox(
 off = int(st.session_state.get(k_off, 0))
 
 q_movies = text(
-    """
+    f"""
     SELECT movie_id, title, poster_path, vote_average, vote_count, industry
     FROM movies
-    WHERE industry = :ind
+    WHERE industry = :ind AND {APPROVED_WHERE}
     ORDER BY popularity DESC
     LIMIT :lim OFFSET :off
     """

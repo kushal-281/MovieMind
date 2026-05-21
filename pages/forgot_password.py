@@ -1,4 +1,3 @@
-import base64
 from datetime import datetime
 
 import streamlit as st
@@ -11,62 +10,21 @@ from components.email_utils import (
     otp_expiry,
     send_otp_email,
 )
-from components.theme import apply_theme_css
+from components.theme import apply_theme_css, auth_page_styles, init_theme
 from config.database import engine
 
 st.set_page_config(layout="wide")
+init_theme()
 apply_theme_css()
+auth_page_styles()
 
-
-def get_base64_image(path):
-    with open(path, "rb") as img:
-        return base64.b64encode(img.read()).decode()
-
-
-logo = get_base64_image("assets/movieMind.png")
 if "forgot_pending" not in st.session_state:
     st.session_state.forgot_pending = None
-
-st.markdown(
-    """
-<style>
-header {visibility:hidden;}
-#MainMenu {visibility:hidden;}
-footer {visibility:hidden;}
-.block-container {
-    max-width: 1250px;
-    margin-left: auto;
-    margin-right: auto;
-    padding-top: 0rem !important;
-}
-div.stButton > button {
-    background-color: #007BFF;
-    color: white;
-    border-radius: 6px;
-    width: 100%;
-    margin-top: 10px;
-}
-</style>
-""",
-    unsafe_allow_html=True,
-)
-
-col1, _ = st.columns([6, 1])
-with col1:
-    st.markdown(
-        f"""
-        <a href="/" target="_self">
-            <img src="data:image/png;base64,{logo}" height="45" style="cursor:pointer;">
-        </a>
-        """,
-        unsafe_allow_html=True,
-    )
-st.divider()
 
 c1, c2, c3 = st.columns([2, 3, 2])
 with c2:
     with st.container(border=True):
-        st.markdown("### 🔑 Forgot Password")
+        st.markdown("### Forgot Password")
         st.caption("Enter your email, verify OTP, then set a new password.")
 
         prefill_email = st.session_state.get("reset_email_prefill", "")
@@ -77,7 +35,7 @@ with c2:
             "Confirm New Password", type="password", key="forgot_confirm_password"
         )
 
-        if st.button("Send OTP", key="forgot_send_otp"):
+        if st.button("Send OTP", key="forgot_send_otp", use_container_width=True):
             if not is_valid_email(email):
                 st.error("Invalid email format.")
                 st.stop()
@@ -102,7 +60,11 @@ with c2:
             }
             st.success("OTP sent to your email.")
 
-        if st.button("Verify OTP & Update Password", key="forgot_update_password"):
+        if st.button(
+            "Verify OTP & Update Password",
+            key="forgot_update_password",
+            use_container_width=True,
+        ):
             pending = st.session_state.get("forgot_pending")
             if not pending:
                 st.error("Please send OTP first.")
@@ -130,5 +92,5 @@ with c2:
                 st.session_state.forgot_pending = None
                 st.success("Password updated successfully. Please login.")
 
-        if st.button("Back to Login", key="forgot_back_login"):
+        if st.button("Back to Login", key="forgot_back_login", use_container_width=True):
             st.switch_page("pages/login.py")

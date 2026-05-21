@@ -6,6 +6,7 @@ from sqlalchemy import text
 
 from components.header import show_header
 from components.auth import restore_session
+from components.add_movie_form import render_add_movie_form
 from components.movie_chatbot import render_movie_chatbot
 from components.theme import THEMES, init_theme, save_theme
 from cookies import cookies
@@ -27,326 +28,347 @@ user_id = int(user["user_id"])
 
 show_header()
 
+def _short_name(name: str, n: int = 14) -> str:
+    name = str(name).strip()
+    return name if len(name) <= n else name[: n - 1] + "…"
+
+
+time_label = ""
+try:
+    with engine.connect() as c2:
+        row = c2.execute(
+            text(
+                "SELECT COALESCE(total_site_seconds, 0) AS t FROM users WHERE user_id = :uid"
+            ),
+            {"uid": user_id},
+        ).fetchone()
+    if row:
+        total_s = int(row[0] or 0)
+        time_label = f"{total_s // 3600}h {(total_s % 3600) // 60}m"
+except Exception:
+    pass
+
 st.markdown(
     """
     <style>
-    .user-card {
-        background: linear-gradient(135deg, #1f114a 0%, #3f1e75 60%, #1a3a7a 100%);
-        border: 1px solid rgba(170, 142, 255, 0.35);
-        border-radius: 14px;
-        padding: 16px;
-        color: #f4f0ff;
-        margin-bottom: 10px;
+    .profile-top-bar {
+        background: var(--mm-card-bg);
+        border: 1px solid var(--mm-border);
+        border-radius: 12px;
+        padding: 12px 16px;
+        margin-bottom: 12px;
     }
-    .user-card small {
-        color: #d8ceff;
+    .profile-user-inline {
+        font-weight: 700;
+        font-size: 1.05rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 160px;
+    }
+    .profile-meta {
+        font-size: 0.82rem;
+        color: var(--mm-muted);
+        margin-top: 2px;
     }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-col1, col2 = st.columns([1, 3])
+with st.container(border=True):
+    top_user, top_menu, top_out = st.columns([1.4, 5.2, 1.2], gap="medium")
 
-with col1:
-    st.title("👤 Profile")
-    st.markdown(
-        f"""
-        <div class="user-card">
-            <div><small>Username</small></div>
-            <div><b>{user['username']}</b></div>
-            <div style="margin-top:8px;"><small>Role</small></div>
-            <div><b>{user['role']}</b></div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    try:
-        with engine.connect() as c2:
-            row = c2.execute(
+    with top_user:
+        sn = _short_name(user["username"], 14)
+        st.markdown(
+            f"""
+            <div class="profile-top-bar" style="padding:10px 12px;margin:0;">
+                <div class="profile-user-inline" title="{user['username']}">👤 {sn}</div>
+                <div class="profile-meta">{user['role'].title()}{f' · {time_label}' if time_label else ''}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with top_menu:
+        tab = st.radio(
+            "Menu",
+            [
+                "Chat Bot",
+                "Add Movie",
+                "Chatbot History",
+                "Search History",
+                "Analytics",
+                "Theme",
+            ],
+            horizontal=True,
+            label_visibility="collapsed",
+        )
+
+    with top_out:
+        if st.button("Logout", key="profile_logout_btn", use_container_width=True):
+            st.session_state["force_logout"] = True
+            if cookies.get("user"):
+                cookies.pop("user", None)
+                cookies.save()
+            keys = list(st.session_state.keys())
+            for key in keys:
+                if key != "force_logout":
+                    del st.session_state[key]
+            st.switch_page("app.py")
+
+st.divider()
+
+# Full-width content for selected menu tab
+try:
+    conn = engine.connect()
+
+    if tab == "Chat Bot":
+        render_movie_chatbot(user_id, username=user.get("username"))
+
+    elif tab == "Add Movie":
+        render_add_movie_form(user_id, auto_approve=False, form_key="profile_add_movie")
+
+    elif tab == "Chatbot History":
+        st.subheader("🧾 Chatbot History")
+        q_chat = text(
+            """
+            SELECT query, response, timestamp
+            FROM chat_logs
+            WHERE user_id = :uid
+            ORDER BY timestamp DESC
+            """
+        )
+        chat_hist = pd.read_sql(q_chat, conn, params={"uid": user_id})
+        if not chat_hist.empty:
+            chat_hist = chat_hist.rename(
+                columns={
+                    "query": "Question",
+                    "response": "Answer",
+                    "timestamp": "Date Time",
+                }
+            )
+            st.dataframe(chat_hist, use_container_width=True, hide_index=True)
+        else:
+            st.info("No chatbot history found.")
+
+    elif tab == "Search History":
+        st.subheader("🕵️ Search History")
+        q_sh = text(
+            """
+            SELECT query, searched_at
+            FROM search_history
+            WHERE user_id = :uid
+            ORDER BY searched_at DESC
+            """
+        )
+        searches = pd.read_sql(q_sh, conn, params={"uid": user_id})
+        if not searches.empty:
+            searches["searched_at"] = pd.to_datetime(
+                searches["searched_at"], errors="coerce"
+            )
+            searches["Search History"] = searches["query"].astype(str)
+            searches["Time"] = searches["searched_at"].dt.strftime("%H-%M-%S")
+            searches["Date"] = searches["searched_at"].dt.strftime("%d-%m-%Y")
+            searches = searches[["Search History", "Time", "Date"]]
+            st.dataframe(searches, use_container_width=True, hide_index=True)
+        else:
+            st.info("No search history found.")
+
+    elif tab == "Analytics":
+        st.subheader("📊 Your analytics")
+
+        with engine.connect() as c3:
+            r2 = c3.execute(
                 text(
                     "SELECT COALESCE(total_site_seconds, 0) AS t FROM users WHERE user_id = :uid"
                 ),
                 {"uid": user_id},
             ).fetchone()
-        if row:
-            total_s = int(row[0] or 0)
-            st.markdown(
-                f"""
-                <div class="user-card">
-                    <div><small>Time on site (approx.)</small></div>
-                    <div><b>{total_s // 3600}h {(total_s % 3600) // 60}m {total_s % 60}s</b></div>
-                </div>
-                """,
-                unsafe_allow_html=True,
+        total_s = int(r2[0] or 0) if r2 else 0
+        total_min = round(total_s / 60, 1)
+        cap = max(30.0, total_min * 1.25, 60.0)
+
+        fig_g = go.Figure(
+            go.Indicator(
+                mode="gauge+number",
+                value=total_min,
+                number={"suffix": " min", "valueformat": ".1f"},
+                title={"text": "Approx. active time on MovieMind"},
+                gauge={
+                    "axis": {"range": [0, cap]},
+                    "bar": {"color": "#8a2be2"},
+                    "steps": [
+                        {"range": [0, cap * 0.33], "color": "#f2e8ff"},
+                        {"range": [cap * 0.33, cap * 0.66], "color": "#e2d1ff"},
+                    ],
+                },
             )
-    except Exception:
-        pass
-    st.divider()
+        )
+        fig_g.update_layout(height=280, margin=dict(l=30, r=30, t=50, b=30))
+        st.plotly_chart(fig_g, use_container_width=True)
+        st.caption(
+            "Time grows when you click around the app. Long breaks without clicks are not counted."
+        )
 
-    tab = st.radio(
-        "Menu", ["Chat Bot", "Chatbot History", "Search History", "Analytics", "Theme"]
-    )
+        st.markdown("#### Time spent on each movie (minutes)")
+        q_movie = text(
+            """
+            SELECT m.title, SUM(ua.time_spent) AS total_time
+            FROM user_activity ua
+            JOIN movies m ON ua.movie_id = m.movie_id
+            WHERE ua.user_id = :uid
+            GROUP BY ua.movie_id, m.title
+            ORDER BY total_time DESC
+            LIMIT 15
+            """
+        )
+        df_time = pd.read_sql(q_movie, conn, params={"uid": user_id})
+        if not df_time.empty:
+            df_time["minutes"] = (df_time["total_time"] / 60.0).round(2)
+            fig_m = px.bar(
+                df_time,
+                x="minutes",
+                y="title",
+                orientation="h",
+                labels={"minutes": "Minutes", "title": "Movie"},
+                title="Where you spend time (detail pages)",
+                color_discrete_sequence=["#6a5acd"],
+            )
+            fig_m.update_layout(yaxis={"categoryorder": "total ascending"})
+            st.plotly_chart(fig_m, use_container_width=True)
+        else:
+            st.info("Open some movie pages to see time-per-movie here.")
 
-    if st.button("Logout", key="profile_logout_btn"):
-        st.session_state["force_logout"] = True
-        if cookies.get("user"):
-            cookies.pop("user", None)
-            cookies.save()
-        keys = list(st.session_state.keys())
-        for key in keys:
-            if key != "force_logout":
-                del st.session_state[key]
-        st.switch_page("app.py")
-
-with col2:
-    try:
-        conn = engine.connect()
-
-        if tab == "Chat Bot":
-            render_movie_chatbot(user_id)
-
-        elif tab == "Chatbot History":
-            st.subheader("🧾 Chatbot History")
-            q_chat = text(
+        st.markdown("#### Searches matched to industry")
+        try:
+            q_ind = text(
                 """
-                SELECT query, response, timestamp
-                FROM chat_logs
-                WHERE user_id = :uid
-                ORDER BY timestamp DESC
+                SELECT COALESCE(m.industry, 'Unknown') AS industry, COUNT(*) AS cnt
+                FROM search_history sh
+                JOIN movies m ON m.title LIKE CONCAT('%', sh.query, '%')
+                WHERE sh.user_id = :uid
+                GROUP BY m.industry
+                ORDER BY cnt DESC
                 """
             )
-            chat_hist = pd.read_sql(q_chat, conn, params={"uid": user_id})
-            if not chat_hist.empty:
-                chat_hist = chat_hist.rename(
-                    columns={
-                        "query": "Question",
-                        "response": "Answer",
-                        "timestamp": "Date Time",
-                    }
+            df_ind = pd.read_sql(q_ind, conn, params={"uid": user_id})
+            if not df_ind.empty:
+                fig_i = px.bar(
+                    df_ind,
+                    x="industry",
+                    y="cnt",
+                    labels={"industry": "Industry", "cnt": "Matched searches"},
+                    title="How often your search text matched movies in each industry",
+                    color_discrete_sequence=["#20b2aa"],
                 )
-                st.dataframe(chat_hist, use_container_width=True, hide_index=True)
+                st.plotly_chart(fig_i, use_container_width=True)
             else:
-                st.info("No chatbot history found.")
+                st.info(
+                    "No industry matches yet (try searching full movie titles from the catalog)."
+                )
+        except Exception:
+            st.info("Industry chart skipped (no matching data or schema issue).")
 
-        elif tab == "Search History":
-            st.subheader("🕵️ Search History")
-            q_sh = text(
+        st.markdown("#### Searches matched to genre")
+        try:
+            q_gen = text(
                 """
-                SELECT query, searched_at
-                FROM search_history
-                WHERE user_id = :uid
-                ORDER BY searched_at DESC
+                SELECT g.genre_name AS genre_name, COUNT(*) AS cnt
+                FROM search_history sh
+                JOIN movies m ON m.title LIKE CONCAT('%', sh.query, '%')
+                JOIN movie_genres mg ON mg.movie_id = m.movie_id
+                JOIN genres g ON g.genre_id = mg.genre_id
+                WHERE sh.user_id = :uid
+                GROUP BY g.genre_name
+                ORDER BY cnt DESC
+                LIMIT 12
                 """
             )
-            searches = pd.read_sql(q_sh, conn, params={"uid": user_id})
-
-            if not searches.empty:
-                searches["searched_at"] = pd.to_datetime(
-                    searches["searched_at"], errors="coerce"
+            df_gen = pd.read_sql(q_gen, conn, params={"uid": user_id})
+            if not df_gen.empty:
+                fig_g2 = px.bar(
+                    df_gen,
+                    x="genre_name",
+                    y="cnt",
+                    labels={"genre_name": "Genre", "cnt": "Matched searches"},
+                    title="Genres tied to movies that matched your searches",
+                    color_discrete_sequence=["#ff8c42"],
                 )
-                searches["Search History"] = searches["query"].astype(str)
-                searches["Time"] = searches["searched_at"].dt.strftime("%H-%M-%S")
-                searches["Date"] = searches["searched_at"].dt.strftime("%d-%m-%Y")
-                searches = searches[["Search History", "Time", "Date"]]
-                st.dataframe(searches, use_container_width=True, hide_index=True)
+                st.plotly_chart(fig_g2, use_container_width=True)
             else:
-                st.info("No search history found.")
-
-        elif tab == "Analytics":
-            st.subheader("📊 Your analytics")
-
-            # --- Total time on site (easy to read gauge) ---
-            with engine.connect() as c3:
-                r2 = c3.execute(
-                    text(
-                        "SELECT COALESCE(total_site_seconds, 0) AS t FROM users WHERE user_id = :uid"
-                    ),
-                    {"uid": user_id},
-                ).fetchone()
-            total_s = int(r2[0] or 0) if r2 else 0
-            total_min = round(total_s / 60, 1)
-            cap = max(30.0, total_min * 1.25, 60.0)
-
-            fig_g = go.Figure(
-                go.Indicator(
-                    mode="gauge+number",
-                    value=total_min,
-                    number={"suffix": " min", "valueformat": ".1f"},
-                    title={"text": "Approx. active time on MovieMind"},
-                    gauge={
-                        "axis": {"range": [0, cap]},
-                        "bar": {"color": "#8a2be2"},
-                        "steps": [
-                            {"range": [0, cap * 0.33], "color": "#f2e8ff"},
-                            {"range": [cap * 0.33, cap * 0.66], "color": "#e2d1ff"},
-                        ],
-                    },
-                )
-            )
-            fig_g.update_layout(height=280, margin=dict(l=30, r=30, t=50, b=30))
-            st.plotly_chart(fig_g, use_container_width=True)
-            st.caption(
-                "Time grows when you click around the app. Long breaks without clicks are not counted."
-            )
-
-            st.markdown("#### Time spent on each movie (minutes)")
-            q_movie = text(
-                """
-                SELECT m.title, SUM(ua.time_spent) AS total_time
-                FROM user_activity ua
-                JOIN movies m ON ua.movie_id = m.movie_id
-                WHERE ua.user_id = :uid
-                GROUP BY ua.movie_id, m.title
-                ORDER BY total_time DESC
-                LIMIT 15
-                """
-            )
-            df_time = pd.read_sql(q_movie, conn, params={"uid": user_id})
-            if not df_time.empty:
-                df_time["minutes"] = (df_time["total_time"] / 60.0).round(2)
-                fig_m = px.bar(
-                    df_time,
-                    x="minutes",
-                    y="title",
-                    orientation="h",
-                    labels={"minutes": "Minutes", "title": "Movie"},
-                    title="Where you spend time (detail pages)",
-                    color_discrete_sequence=["#6a5acd"],
-                )
-                fig_m.update_layout(yaxis={"categoryorder": "total ascending"})
-                st.plotly_chart(fig_m, use_container_width=True)
-            else:
-                st.info("Open some movie pages to see time-per-movie here.")
-
-            st.markdown("#### Searches matched to industry")
+                st.info("No genre matches yet.")
+        except Exception:
             try:
-                q_ind = text(
+                q_gen2 = text(
                     """
-                    SELECT COALESCE(m.industry, 'Unknown') AS industry, COUNT(*) AS cnt
-                    FROM search_history sh
-                    JOIN movies m ON m.title LIKE CONCAT('%', sh.query, '%')
-                    WHERE sh.user_id = :uid
-                    GROUP BY m.industry
-                    ORDER BY cnt DESC
-                    """
-                )
-                df_ind = pd.read_sql(q_ind, conn, params={"uid": user_id})
-                if not df_ind.empty:
-                    fig_i = px.bar(
-                        df_ind,
-                        x="industry",
-                        y="cnt",
-                        labels={"industry": "Industry", "cnt": "Matched searches"},
-                        title="How often your search text matched movies in each industry",
-                        color_discrete_sequence=["#20b2aa"],
-                    )
-                    st.plotly_chart(fig_i, use_container_width=True)
-                else:
-                    st.info(
-                        "No industry matches yet (try searching full movie titles from the catalog)."
-                    )
-            except Exception:
-                st.info("Industry chart skipped (no matching data or schema issue).")
-
-            st.markdown("#### Searches matched to genre")
-            try:
-                q_gen = text(
-                    """
-                    SELECT g.genre_name AS genre_name, COUNT(*) AS cnt
+                    SELECT g.name AS genre_name, COUNT(*) AS cnt
                     FROM search_history sh
                     JOIN movies m ON m.title LIKE CONCAT('%', sh.query, '%')
                     JOIN movie_genres mg ON mg.movie_id = m.movie_id
                     JOIN genres g ON g.genre_id = mg.genre_id
                     WHERE sh.user_id = :uid
-                    GROUP BY g.genre_name
+                    GROUP BY g.name
                     ORDER BY cnt DESC
                     LIMIT 12
                     """
                 )
-                df_gen = pd.read_sql(q_gen, conn, params={"uid": user_id})
+                df_gen = pd.read_sql(q_gen2, conn, params={"uid": user_id})
                 if not df_gen.empty:
                     fig_g2 = px.bar(
                         df_gen,
                         x="genre_name",
                         y="cnt",
-                        labels={"genre_name": "Genre", "cnt": "Matched searches"},
                         title="Genres tied to movies that matched your searches",
                         color_discrete_sequence=["#ff8c42"],
                     )
                     st.plotly_chart(fig_g2, use_container_width=True)
-                else:
-                    st.info("No genre matches yet.")
             except Exception:
-                try:
-                    q_gen2 = text(
-                        """
-                        SELECT g.name AS genre_name, COUNT(*) AS cnt
-                        FROM search_history sh
-                        JOIN movies m ON m.title LIKE CONCAT('%', sh.query, '%')
-                        JOIN movie_genres mg ON mg.movie_id = m.movie_id
-                        JOIN genres g ON g.genre_id = mg.genre_id
-                        WHERE sh.user_id = :uid
-                        GROUP BY g.name
-                        ORDER BY cnt DESC
-                        LIMIT 12
-                        """
-                    )
-                    df_gen = pd.read_sql(q_gen2, conn, params={"uid": user_id})
-                    if not df_gen.empty:
-                        fig_g2 = px.bar(
-                            df_gen,
-                            x="genre_name",
-                            y="cnt",
-                            title="Genres tied to movies that matched your searches",
-                            color_discrete_sequence=["#ff8c42"],
-                        )
-                        st.plotly_chart(fig_g2, use_container_width=True)
-                except Exception:
-                    st.info("Genre chart skipped (check genres column: genre_name vs name).")
+                st.info("Genre chart skipped (check genres column: genre_name vs name).")
 
-            st.markdown("#### Search activity over time")
-            q_sf = text(
-                """
-                SELECT DATE(searched_at) AS date, COUNT(*) AS searches
-                FROM search_history
-                WHERE user_id = :uid
-                GROUP BY DATE(searched_at)
-                ORDER BY date
-                """
+        st.markdown("#### Search activity over time")
+        q_sf = text(
+            """
+            SELECT DATE(searched_at) AS date, COUNT(*) AS searches
+            FROM search_history
+            WHERE user_id = :uid
+            GROUP BY DATE(searched_at)
+            ORDER BY date
+            """
+        )
+        df_search = pd.read_sql(q_sf, conn, params={"uid": user_id})
+        if not df_search.empty:
+            fig_l = px.line(
+                df_search,
+                x="date",
+                y="searches",
+                markers=True,
+                title="Number of searches per day",
             )
-            df_search = pd.read_sql(q_sf, conn, params={"uid": user_id})
-            if not df_search.empty:
-                fig_l = px.line(
-                    df_search,
-                    x="date",
-                    y="searches",
-                    markers=True,
-                    title="Number of searches per day",
-                )
-                fig_l.update_traces(line_color="#2e8b57", marker_color="#2e8b57")
-                st.plotly_chart(fig_l, use_container_width=True)
+            fig_l.update_traces(line_color="#2e8b57", marker_color="#2e8b57")
+            st.plotly_chart(fig_l, use_container_width=True)
 
-        elif tab == "Theme":
-            st.subheader("🎨 Theme Settings")
-            current = st.session_state.get("theme_mode", "light")
-            theme_options = list(THEMES.keys())
-            st.caption("Each row has one theme. Click Apply on the right.")
-            for mode in theme_options:
-                c_name, c_btn = st.columns([5, 1])
-                with c_name:
-                    label = mode.title()
-                    if mode == current:
-                        label += " (Current)"
-                    st.markdown(f"**{label}**")
-                with c_btn:
-                    if st.button("Apply", key=f"apply_theme_{mode}", use_container_width=True):
-                        save_theme(mode)
-                        st.success(f"Theme updated to {mode}.")
-                        st.rerun()
+    elif tab == "Theme":
+        st.subheader("🎨 Theme Settings")
+        current = st.session_state.get("theme_mode", "light")
+        theme_options = list(THEMES.keys())
+        st.caption("Light themes: Light, Light Cream, Light Sky. Click Apply to switch.")
+        for mode in theme_options:
+            c_name, c_btn = st.columns([5, 1])
+            with c_name:
+                label = mode.replace("_", " ").title()
+                if mode == current:
+                    label += " (Current)"
+                st.markdown(f"**{label}**")
+            with c_btn:
+                if st.button("Apply", key=f"apply_theme_{mode}", use_container_width=True):
+                    save_theme(mode)
+                    st.success(f"Theme updated to {mode}.")
+                    st.rerun()
 
-    except Exception as e:
-        st.error(f"⚠️ Database error: {e}")
-    finally:
-        if "conn" in locals():
-            conn.close()
+except Exception as e:
+    st.error(f"⚠️ Database error: {e}")
+finally:
+    if "conn" in locals():
+        conn.close()

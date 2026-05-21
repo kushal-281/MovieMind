@@ -1,10 +1,31 @@
 import pandas as pd
-from sqlalchemy import create_engine
-import joblib
 import os
 
+from dotenv import load_dotenv
+from sqlalchemy import create_engine
+from sqlalchemy.engine import URL
+import joblib
+
 # -------- DB CONNECTION --------
-engine = create_engine("mysql+pymysql://root:Kushal%402004@localhost/moviemind")
+load_dotenv()
+db_url = os.getenv("DATABASE_URL")
+if db_url:
+    engine = create_engine(db_url)
+else:
+    user = os.getenv("DB_USER", "root")
+    password = os.getenv("DB_PASSWORD", "")
+    host = os.getenv("DB_HOST", "localhost")
+    name = os.getenv("DB_NAME", "movieMind")
+    engine = create_engine(
+        URL.create(
+            "mysql+pymysql",
+            username=user,
+            password=password,
+            host=host,
+            port=3306,
+            database=name,
+        )
+    )
 
 # -------- BASE PATH (IMPORTANT FIX) --------
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))   # MovieMind folder

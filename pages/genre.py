@@ -5,6 +5,7 @@ from sqlalchemy import text
 from components.browse_grid import render_movie_grid
 from components.header import show_header
 from config.database import engine
+from components.movie_db import APPROVED_WHERE_M
 
 st.set_page_config(layout="wide")
 
@@ -59,11 +60,11 @@ gid = id_by_label[label]
 off = int(st.session_state.get(k_off, 0))
 
 q_movies = text(
-    """
+    f"""
       SELECT m.movie_id, m.title, m.poster_path, m.vote_average, m.vote_count, m.industry
       FROM movies m
       INNER JOIN movie_genres mg ON m.movie_id = mg.movie_id
-      WHERE mg.genre_id = :gid
+      WHERE mg.genre_id = :gid AND {APPROVED_WHERE_M}
       ORDER BY m.popularity DESC
       LIMIT :lim OFFSET :off
     """

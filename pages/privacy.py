@@ -2,53 +2,99 @@ import streamlit as st
 
 from components.footer import show_footer
 from components.header_without_search import header_without_search
+
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(page_title="Privacy Policy - MovieMind", layout="wide")
 
+# ---------------- HEADER ----------------
 header_without_search()
+
 # ---------------- CUSTOM CSS ----------------
 st.markdown("""
 <style>
+
+.block-container{
+    # max-width: 1100px;
+    padding-top: 20px;
+}
+
+/* Page */
 .main {
     background-color: #0E1117;
     color: white;
 }
 
+/* Title */
 .title {
     text-align: center;
-    font-size: 40px;
-    font-weight: bold;
-    margin-bottom: 20px;
-}
-
-.section {
-    background-color: #161B22;
-    padding: 20px;
-    border-radius: 10px;
-    margin-bottom: 15px;
-    transition: 0.3s;
-}
-
-.section:hover {
-    transform: scale(1.01);
-    box-shadow: 0px 0px 15px rgba(255,255,255,0.1);
-}
-
-.heading {
-    font-size: 22px;
-    font-weight: bold;
+    font-size: 42px;
+    font-weight: 700;
+    color: white;
     margin-bottom: 10px;
 }
 
+/* Subtitle */
+.subtitle {
+    text-align: center;
+    color: #bdbdbd;
+    font-size: 16px;
+    margin-bottom: 40px;
+}
+
+/* Section spacing */
+.section {
+    margin-bottom: 30px;
+}
+
+/* Heading */
+.heading {
+    font-size: 24px;
+    font-weight: 600;
+    color: white;
+    margin-bottom: 10px;
+    border-left: 4px solid #4A90E2;
+    padding-left: 12px;
+}
+
+/* Text */
 .text {
     font-size: 16px;
-    line-height: 1.6;
+    color: #cfcfcf;
+    line-height: 1.8;
 }
+
+/* List */
+.text ul {
+    padding-left: 22px;
+}
+
+.text li {
+    margin-bottom: 8px;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid #2a2a2a;
+    margin-top: 25px;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
 # ---------------- TITLE ----------------
-st.markdown('<div class="title">🔐 Privacy Policy – MovieMind</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="title">Privacy Policy</div>',
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    """
+    <div class="subtitle">
+        Your privacy and data security are important to us at MovieMind.
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 # ---------------- SECTION FUNCTION ----------------
 def section(title, content):
@@ -56,71 +102,138 @@ def section(title, content):
     <div class="section">
         <div class="heading">{title}</div>
         <div class="text">{content}</div>
+        <hr>
     </div>
     """, unsafe_allow_html=True)
 
 # ---------------- CONTENT ----------------
-section("1. Introduction",
-        "Welcome to MovieMind. Your privacy is important to us. This Privacy Policy explains how we collect, use, and protect your information.")
+section(
+    "1. Introduction",
+    """
+    Welcome to MovieMind. This Privacy Policy explains how we collect,
+    use, store, and protect your personal information while using our platform.
+    By using MovieMind, you agree to the practices described in this policy.
+    """
+)
 
-section("2. Information We Collect",
-        """
-        We may collect the following data:
-        <ul>
-            <li>Account information (name, email)</li>
-            <li>Login details</li>
-            <li>Search history and user activity</li>
-            <li>Technical data (IP address, browser type)</li>
-        </ul>
-        """)
+section(
+    "2. Information We Collect",
+    """
+    We may collect the following information from users:
+    <ul>
+        <li>Username and email address during account registration</li>
+        <li>Login credentials and authentication details</li>
+        <li>Movie search history and browsing activity</li>
+        <li>User preferences and watch history</li>
+        <li>Technical information such as browser type and IP address</li>
+        <li>Device-related information for improving compatibility and security</li>
+    </ul>
+    """
+)
 
-section("3. How We Use Your Information",
-        """
-        We use your data to:
-        <ul>
-            <li>Provide and improve our services</li>
-            <li>Personalize your experience</li>
-            <li>Store search history for better recommendations</li>
-            <li>Ensure platform security</li>
-        </ul>
-        """)
+section(
+    "3. How We Use Your Information",
+    """
+    Your information is used to improve platform functionality and provide
+    a better user experience. We may use your information to:
+    <ul>
+        <li>Create and manage user accounts</li>
+        <li>Provide personalized movie recommendations</li>
+        <li>Improve search accuracy and analytics</li>
+        <li>Maintain security and prevent unauthorized access</li>
+        <li>Respond to support requests and feedback</li>
+        <li>Enhance overall website performance and usability</li>
+    </ul>
+    """
+)
 
-section("4. Data Protection",
-        "We implement security measures to protect your personal data. However, no system is completely secure, and we cannot guarantee absolute security.")
+section(
+    "4. Data Protection and Security",
+    """
+    MovieMind uses reasonable security measures to protect user data
+    from unauthorized access, misuse, or disclosure.
+    While we strive to maintain strong security practices,
+    no online platform can guarantee complete protection against all threats.
+    """
+)
 
-section("5. Sharing of Information",
-        """
-        We do NOT sell your personal data. We may share data only:
-        <ul>
-            <li>With trusted third-party services (APIs)</li>
-            <li>If required by law</li>
-        </ul>
-        """)
+section(
+    "5. Sharing of Information",
+    """
+    We do not sell, rent, or trade your personal information.
+    Information may only be shared in limited situations:
+    <ul>
+        <li>With trusted third-party services required for platform functionality</li>
+        <li>To comply with legal obligations or government requests</li>
+        <li>To protect the safety, rights, and security of MovieMind and its users</li>
+    </ul>
+    """
+)
 
-section("6. Cookies and Tracking",
-        "MovieMind may use cookies to enhance user experience and analyze usage patterns.")
+section(
+    "6. Cookies and Tracking Technologies",
+    """
+    MovieMind may use cookies and similar technologies to improve
+    user experience, remember preferences, analyze traffic,
+    and understand platform usage patterns.
+    Users can disable cookies through browser settings if preferred.
+    """
+)
 
-section("7. Third-Party Services",
-        "We use third-party APIs for movie data. These services may collect limited information as per their own policies.")
+section(
+    "7. Third-Party Services",
+    """
+    MovieMind may integrate third-party APIs and services for movie data,
+    recommendations, or analytics. These services may process limited user data
+    according to their own privacy policies and terms.
+    """
+)
 
-section("8. User Rights",
-        """
-        You have the right to:
-        <ul>
-            <li>Access your data</li>
-            <li>Request correction or deletion</li>
-            <li>Stop using the platform anytime</li>
-        </ul>
-        """)
+section(
+    "8. User Rights",
+    """
+    Users have the right to:
+    <ul>
+        <li>Access personal information stored on the platform</li>
+        <li>Request corrections to inaccurate data</li>
+        <li>Request account or data deletion</li>
+        <li>Stop using the platform at any time</li>
+        <li>Contact support regarding privacy concerns</li>
+    </ul>
+    """
+)
 
-section("9. Changes to Privacy Policy",
-        "We may update this policy from time to time. Continued use of MovieMind means you accept the updated policy.")
+section(
+    "9. Data Retention",
+    """
+    We retain user information only for as long as necessary
+    to provide platform services, maintain security,
+    improve recommendations, and comply with legal requirements.
+    """
+)
 
-section("10. Contact Us",
-        "Email: support@moviemind.com<br>Location: Panipat, Haryana, India")
+section(
+    "10. Policy Updates",
+    """
+    MovieMind may update this Privacy Policy periodically
+    to reflect new features, legal requirements, or service improvements.
+    Continued use of the platform after updates indicates acceptance
+    of the revised policy.
+    """
+)
 
-section("11. Data Retention",
-        "We keep essential account and activity records only as long as required to provide recommendations, maintain security, and support users.")
+section(
+    "11. Contact Information",
+    """
+    If you have questions regarding this Privacy Policy or your data,
+    you may contact us through the MovieMind support system.
+
+    <br><br>
+
+    Email: support@moviemind.com<br>
+    Location: Panipat, Haryana, India
+    """
+)
 
 # ---------------- FOOTER ----------------
 show_footer()

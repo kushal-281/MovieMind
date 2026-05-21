@@ -18,6 +18,7 @@ st.markdown("""
     margin-left: auto;
     margin-right: auto;
     padding-top: 0rem !important;
+    margin-top:-30px !important;
 }
 /* Change this value to adjust button spacing app-wide */
 div.stButton > button {

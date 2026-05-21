@@ -1,17 +1,23 @@
 import base64
+import html as html_lib
 
 import streamlit as st
 from sqlalchemy import text
 
 from components.auth import restore_session, track_site_time
-from components.theme import apply_theme_css
+from components.theme import apply_theme_css, init_theme
 from config.database import engine
 
-if "search_movie" not in st.session_state:
-    st.session_state.search_movie = ""
+SK_SEARCH_MOVIE = "search_movie"
+SK_SEARCH_INPUT = "search_input"
+SK_SEARCH_PENDING = "search_movie_pending"
 
-if "search_input" not in st.session_state:
-    st.session_state.search_input = ""
+
+def _ensure_search_state():
+    if SK_SEARCH_MOVIE not in st.session_state:
+        st.session_state[SK_SEARCH_MOVIE] = ""
+    if SK_SEARCH_INPUT not in st.session_state:
+        st.session_state[SK_SEARCH_INPUT] = ""
 
 
 def get_base64_image(path):
@@ -19,192 +25,330 @@ def get_base64_image(path):
         return base64.b64encode(img.read()).decode()
 
 
-def show_header():
-    restore_session()
-    track_site_time()
-    apply_theme_css()
+def _short_username(name: str | None, max_len: int = 8) -> str:
+    if not name:
+        return "Guest"
+    name = str(name).strip()
+    if len(name) <= max_len:
+        return name
+    return name[: max_len - 1] + "…"
 
-    logo = get_base64_image("assets/movieMind.png")
 
+def _run_search(query: str):
+    q = (query or "").strip()
+    if not q:
+        return False
+
+    st.session_state[SK_SEARCH_MOVIE] = q
+    st.session_state[SK_SEARCH_INPUT] = q
+
+    u2 = st.session_state.get("user")
+    if u2 and u2.get("user_id"):
+        try:
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO search_history (user_id, query)
+                        VALUES (:uid, :q)
+                        """
+                    ),
+                    {"uid": int(u2["user_id"]), "q": q[:255]},
+                )
+        except Exception:
+            pass
+
+    st.switch_page("pages/search.py")
+    return True
+
+
+def _queue_search(query: str):
+    q = (query or "").strip()
+    if q:
+        st.session_state[SK_SEARCH_PENDING] = q
+        st.rerun()
+
+
+def _fetch_suggestions(q: str, limit: int = 4) -> list[str]:
+    if len(q.strip()) < 2:
+        return []
+    try:
+        with engine.connect() as conn:
+            rows = conn.execute(
+                text(
+                    """
+                    SELECT DISTINCT title
+                    FROM movies
+                    WHERE title LIKE :pat
+                      AND COALESCE(is_approved, 1) = 1
+                    ORDER BY popularity DESC
+                    LIMIT :lim
+                    """
+                ),
+                {"pat": f"%{q.strip()}%", "lim": limit},
+            ).fetchall()
+        return [r[0] for r in rows if r and r[0]]
+    except Exception:
+        return []
+
+
+def _header_styles():
     st.markdown(
         """
-    <style>
-    header {visibility:hidden;}
-    #MainMenu {visibility:hidden;}
-    footer {visibility:hidden;}
+        <style>
+        header {visibility:hidden;}
+        #MainMenu {visibility:hidden;}
+        footer {visibility:hidden;}
+        .block-container { padding-top: 0.4rem !important; max-width: 1380px; }
 
-    .block-container {
-        padding-top: 0.5rem !important;
-        max-width: 1350px;
-        margin-top:0px; 
-    }
+        /* MovieMind header shell (first bordered block on page) */
+        .main .block-container > div > div[data-testid="stVerticalBlockBorderWrapper"]:first-of-type {
+            background: linear-gradient(
+                135deg,
+                var(--mm-card-bg) 0%,
+                var(--mm-chat-wrap-bg) 55%,
+                var(--mm-card-bg) 100%
+            ) !important;
+            border: 1px solid var(--mm-border) !important;
+            border-radius: 16px !important;
+            box-shadow:
+                0 4px 20px rgba(0, 0, 0, 0.12),
+                inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+            padding: 10px 14px !important;
+            margin-bottom: 1.1rem !important;
+            overflow: hidden !important;
+        }
 
-    .mm-header-logo img {
-        display: block;
-        margin: 6px 0 4px 0;
-        border-radius: 4px;
-    }
+        .main .block-container > div > div[data-testid="stVerticalBlockBorderWrapper"]:first-of-type
+        > div > div[data-testid="stVerticalBlock"] > div[data-testid="stHorizontalBlock"] {
+            flex-wrap: nowrap !important;
+            align-items: center !important;
+            gap: 10px !important;
+            width: 100% !important;
+            overflow: hidden !important;
+        }
 
-    .mm-header-bar .stButton > button {
-        border-radius: 8px;
-        padding: 0.35rem 0.75rem;
-        font-weight: 500;
-        margin-top: 8px;
-        margin-bottom: 8px; /* Change this if you want more/less button gap */
-    }
+        .main .block-container > div > div[data-testid="stVerticalBlockBorderWrapper"]:first-of-type
+        [data-testid="column"] {
+            flex: 0 1 auto !important;
+            min-width: 0 !important;
+            width: auto !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            overflow: hidden !important;
+        }
 
-    .mm-header-bar .stButton > button:hover {
-        filter: brightness(0.98);
-    }
+        .main .block-container > div > div[data-testid="stVerticalBlockBorderWrapper"]:first-of-type
+        [data-testid="column"]:nth-child(2) {
+            flex: 1 1 320px !important;
+            min-width: 120px !important;
+        }
 
-    .mm-user-pill {
-        margin-top: 14px;
-        margin-left: 8px;
-        padding: 6px 10px;
-        background: #f4f4f5;
-        border-radius: 999px;
-        font-size: 0.95rem;
-        font-family: "Trebuchet MS", "Segoe UI", sans-serif;
-        font-weight: 600;
-        letter-spacing: 0.2px;
-        display: inline-block;
-        color: #000;
-    }
+        .main .block-container > div > div[data-testid="stVerticalBlockBorderWrapper"]:first-of-type
+        [data-testid="stMarkdownContainer"] {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
 
-    div[data-testid="stHorizontalBlock"]:has(.mm-search-row) [data-testid="column"] {
-        vertical-align: middle;
-    }
+        .main .block-container > div > div[data-testid="stVerticalBlockBorderWrapper"]:first-of-type
+        div.stButton {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+        }
 
-    .mm-search-row [data-testid="stTextInput"] label {
-        display: none;
-    }
-    .mm-search-row [data-testid="stTextInput"] input {
-        margin-top: 6px !important;
-        border-radius: 8px !important;
-    }
-    .mm-search-row .stButton > button {
-        margin-top: 16px !important;
-        margin-bottom: 8px !important; /* Keep spacing editable from one place */
-        border-radius: 8px !important;
-        min-height: 42px;
-    }
-    </style>
-    """,
+        .main .block-container > div > div[data-testid="stVerticalBlockBorderWrapper"]:first-of-type
+        div.stButton > button {
+            width: 100% !important;
+            min-height: 38px !important;
+            max-height: 38px !important;
+            height: 38px !important;
+            margin: 0 !important;
+            padding: 0 10px !important;
+            border-radius: 10px !important;
+            font-size: 0.8rem !important;
+            font-weight: 600 !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            line-height: 1 !important;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08) !important;
+            transition: transform 0.15s ease, filter 0.15s ease !important;
+        }
+
+        .main .block-container > div > div[data-testid="stVerticalBlockBorderWrapper"]:first-of-type
+        div.stButton > button:hover {
+            transform: translateY(-1px);
+            filter: brightness(1.06);
+        }
+
+        .main .block-container > div > div[data-testid="stVerticalBlockBorderWrapper"]:first-of-type
+        div[data-testid="stTextInput"] {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .main .block-container > div > div[data-testid="stVerticalBlockBorderWrapper"]:first-of-type
+        div[data-testid="stTextInput"] input {
+            min-height: 38px !important;
+            height: 38px !important;
+            margin: 0 !important;
+            padding: 0 14px !important;
+            border-radius: 10px !important;
+            font-size: 0.88rem !important;
+            border: 1px solid var(--mm-border) !important;
+            background: var(--mm-input-bg, var(--mm-card-bg)) !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.06) !important;
+        }
+
+        .main .block-container > div > div[data-testid="stVerticalBlockBorderWrapper"]:first-of-type
+        div[data-testid="stTextInput"] input:focus {
+            border-color: var(--mm-accent) !important;
+            box-shadow: 0 0 0 2px color-mix(in srgb, var(--mm-accent) 35%, transparent) !important;
+        }
+
+        .mm-hdr-logo-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 38px;
+            min-width: 44px;
+        }
+        .mm-hdr-logo-wrap a { line-height: 0; display: block; }
+        .mm-hdr-logo-wrap img {
+            height: 36px;
+            width: auto;
+            border-radius: 8px;
+            display: block;
+        }
+
+        .mm-hdr-user {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            height: 38px;
+            max-width: 100%;
+            padding: 0 10px;
+            border-radius: 10px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            white-space: nowrap !important;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            border: 1px solid var(--mm-border);
+            background: color-mix(in srgb, var(--mm-accent) 12%, var(--mm-card-bg));
+            color: var(--mm-text);
+            box-sizing: border-box;
+        }
+        </style>
+        """,
         unsafe_allow_html=True,
     )
 
+
+def show_header():
+    restore_session()
+    init_theme()
+    track_site_time()
+    apply_theme_css()
+    _ensure_search_state()
+    _header_styles()
+
+    pending = st.session_state.pop(SK_SEARCH_PENDING, None)
+    if pending:
+        _run_search(pending)
+        return
+
+    logo = get_base64_image("assets/movieMind.png")
     u = st.session_state.get("user")
     is_admin = bool(u and u.get("role") == "admin")
+    short_name = _short_username(u["username"] if u else None)
+    full_name = html_lib.escape(u["username"] if u else "Guest")
+    q_preview = st.session_state.get(SK_SEARCH_INPUT, "").strip()
+    suggestions = _fetch_suggestions(q_preview)
 
-    # Top row: logo / home, user, profile, admin (if admin)
-    c_logo, c_user, c_prof, c_admin = st.columns([4.2, 2.2, 1.1, 1.1])
+    with st.container(border=True):
+        # One row — integer ratios keep spacing stable; search column grows
+        if u and is_admin:
+            ratios = [1, 18, 2, 3, 3, 3, 1]
+        elif u:
+            ratios = [1, 20, 2, 3, 3, 1]
+        else:
+            ratios = [1, 20, 2, 3, 3, 1]
 
-    with c_logo:
-        st.markdown(
-            f"""
-            <div class="mm-header-logo">
-                <a href="/" target="_self" title="MovieMind Home">
-                    <img src="data:image/png;base64,{logo}" height="44" alt="MovieMind"/>
-                </a>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        cols = st.columns(ratios, gap="small")
 
-    with c_user:
-        if u:
+        if u and is_admin:
+            c_logo, c_search, c_go, c_user, c_prof, c_admin, c_hint = cols
+        else:
+            c_logo, c_search, c_go, c_user, c_prof, c_hint = cols
+            c_admin = None
+
+        with c_logo:
             st.markdown(
-                f'<div class="mm-user-pill">👤 {u["username"]}</div>',
+                f"""
+                <div class="mm-hdr-logo-wrap">
+                    <a href="/" target="_self" title="MovieMind Home">
+                        <img src="data:image/png;base64,{logo}" alt="MovieMind"/>
+                    </a>
+                </div>
+                """,
                 unsafe_allow_html=True,
             )
 
-    with c_prof:
-        if u:
-            if st.button("Profile", key="profile_btn", use_container_width=True):
-                if is_admin:
-                    st.switch_page("pages/admin_profile.py")
+        with c_search:
+            st.text_input(
+                "Search",
+                label_visibility="collapsed",
+                placeholder="Search title, actor, genre…",
+                key=SK_SEARCH_INPUT,
+            )
+
+        with c_go:
+            if st.button("Go", key="hdr_search_btn", type="primary", use_container_width=True):
+                q = st.session_state.get(SK_SEARCH_INPUT, "").strip()
+                if q:
+                    _queue_search(q)
                 else:
-                    st.switch_page("pages/profile.py")
+                    st.toast("Type a search term first", icon="⚠️")
 
-    with c_admin:
-        if is_admin:
-            if st.button("Admin", key="admin_panel_btn", use_container_width=True):
-                st.switch_page("pages/admin_auth.py")
-        elif not u:
-            if st.button("Login", key="login_btn", use_container_width=True):
-                st.switch_page("pages/login.py")
+        with c_user:
+            label = (
+                f"👤 {html_lib.escape(short_name)}" if u else "👋 Guest"
+            )
+            st.markdown(
+                f'<div class="mm-hdr-user" title="{full_name}">{label}</div>',
+                unsafe_allow_html=True,
+            )
 
-    st.markdown('<div class="mm-header-bar">', unsafe_allow_html=True)
-    sc1, sc2 = st.columns([6, 1], gap="small")
+        with c_prof:
+            if u:
+                if st.button("Profile", key="hdr_profile", use_container_width=True):
+                    st.switch_page(
+                        "pages/admin_profile.py"
+                        if is_admin
+                        else "pages/profile.py"
+                    )
+            else:
+                if st.button("Login", key="hdr_login", use_container_width=True):
+                    st.switch_page("pages/login.py")
 
-    with sc1:
-        st.markdown('<div class="mm-search-row">', unsafe_allow_html=True)
-        st.text_input("", placeholder="Search movies, actors, genres…", key="search_input")
-        st.markdown("</div>", unsafe_allow_html=True)
-        q_preview = st.session_state.get("search_input", "").strip()
-        if len(q_preview) >= 2:
-            try:
-                with engine.connect() as conn:
-                    s_df = conn.execute(
-                        text(
-                            """
-                            SELECT DISTINCT title
-                            FROM movies
-                            WHERE title LIKE :q
-                            ORDER BY popularity DESC
-                            LIMIT 8
-                            """
-                        ),
-                        {"q": f"{q_preview}%"},
-                    ).fetchall()
-                titles = [r[0] for r in s_df if r and r[0]]
-                if titles:
-                    st.caption("Suggestions")
-                    sug_cols = st.columns(4)
-                    for idx, t in enumerate(titles):
-                        with sug_cols[idx % 4]:
-                            if st.button(str(t), key=f"sugg_{idx}", use_container_width=True):
-                                st.session_state.search_input = str(t)
-                                st.session_state.search_movie = str(t)
-                                st.switch_page("pages/search.py")
-            except Exception:
-                pass
+        if c_admin is not None:
+            with c_admin:
+                if st.button("Admin", key="hdr_admin", use_container_width=True):
+                    st.switch_page("pages/admin_auth.py")
 
-    with sc2:
-        if st.button("Search", key="search_btn", use_container_width=True):
-            if st.session_state.search_input.strip():
-                st.session_state.search_movie = st.session_state.search_input
-                q = st.session_state.search_input.strip()
-                u2 = st.session_state.get("user")
-                if u2 and u2.get("user_id"):
-                    try:
-                        with engine.begin() as conn:
-                            conn.execute(
-                                text(
-                                    "INSERT INTO search_history (user_id, query) VALUES (:uid, :q)"
-                                ),
-                                {"uid": int(u2["user_id"]), "q": q[:255]},
-                            )
-                    except Exception:
-                        pass
-                st.switch_page("pages/search.py")
-
-    st.markdown("</div>", unsafe_allow_html=True)
-    st.divider()
-
-    # # Quick links to browse pages
-    # n1, n2, n3, n4 = st.columns(4)
-    # with n1:
-    #     if st.button("By Year", key="nav_year", use_container_width=True):
-    #         st.switch_page("pages/year.py")
-    # with n2:
-    #     if st.button("By Industry", key="nav_industry", use_container_width=True):
-    #         st.switch_page("pages/industry.py")
-    # with n3:
-    #     if st.button("By Genre", key="nav_genre", use_container_width=True):
-    #         st.switch_page("pages/genre.py")
-    # with n4:
-    #     if st.button("Home", key="nav_home", use_container_width=True):
-    #         st.switch_page("app.py")
-
-    # st.divider()
+        with c_hint:
+            if suggestions:
+                with st.popover("💡", use_container_width=True):
+                    for i, title in enumerate(suggestions):
+                        if st.button(
+                            title[:36],
+                            key=f"hdr_pop_{i}",
+                            use_container_width=True,
+                        ):
+                            _queue_search(title)

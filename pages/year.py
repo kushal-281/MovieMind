@@ -5,6 +5,7 @@ from sqlalchemy import text
 from components.browse_grid import render_movie_grid
 from components.header import show_header
 from config.database import engine
+from components.movie_db import APPROVED_WHERE
 
 st.set_page_config(layout="wide")
 
@@ -20,10 +21,10 @@ k_rows = "browse_year_rows"
 with engine.connect() as conn:
     years = pd.read_sql(
         text(
-            """
+            f"""
             SELECT DISTINCT YEAR(release_date) AS y
             FROM movies
-            WHERE release_date IS NOT NULL
+            WHERE release_date IS NOT NULL AND {APPROVED_WHERE}
             ORDER BY y DESC
             """
         ),
@@ -50,10 +51,10 @@ sel = st.selectbox(
 off = int(st.session_state.get(k_off, 0))
 
 q_movies = text(
-    """
+    f"""
     SELECT movie_id, title, poster_path, vote_average, vote_count, industry
     FROM movies
-    WHERE YEAR(release_date) = :yr
+    WHERE YEAR(release_date) = :yr AND {APPROVED_WHERE}
     ORDER BY popularity DESC
     LIMIT :lim OFFSET :off
     """

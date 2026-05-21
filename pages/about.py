@@ -1,5 +1,6 @@
 import streamlit as st
 from components.footer import show_footer
+from components.header import show_header
 from components.header_without_search import header_without_search
 
 # ---------------- PAGE CONFIG ----------------
@@ -10,176 +11,233 @@ if "user" not in st.session_state:
     st.session_state.user = None
 
 # ---------------- HEADER ----------------
-header_without_search()
+show_header()
 
 # ---------------- CUSTOM CSS ----------------
 st.markdown("""
 <style>
 
-/* Page background */
 body {
     background-color: #0e1117;
 }
 
-/* Title */
+/* Main Title */
 .main-title {
     text-align: center;
-    font-size: 42px;
-    font-weight: bold;
+    font-size: 44px;
+    font-weight: 700;
     color: white;
     margin-top: 20px;
-    animation: fadeIn 1s ease-in-out;
 }
 
 /* Subtitle */
 .sub-title {
     text-align: center;
     font-size: 18px;
-    color: #bbbbbb;
-    margin-bottom: 40px;
-    animation: fadeIn 1.5s ease-in-out;
+    color: #bcbcbc;
+    margin-bottom: 35px;
 }
 
-/* Card container */
-.card {
-    background: linear-gradient(145deg, #1a2030, #151826);
-    padding: 25px;
-    border-radius: 15px;
-    transition: 0.3s;
-    height: 100%;
-    border: 1px solid rgba(120, 145, 255, 0.35);
-}
-
-/* Hover effect */
-.card:hover {
-    transform: translateY(-10px);
-    box-shadow: 0px 10px 25px rgba(109, 156, 255, 0.2);
-}
-
-/* Section title */
+/* Section Title */
 .section-title {
-    font-size: 22px;
-    font-weight: bold;
-    color: #dbe4ff;
-    margin-bottom: 10px;
+    font-size: 28px;
+    font-weight: 600;
+    color: white;
+    margin-top: 35px;
+    margin-bottom: 12px;
 }
 
 /* Text */
 .text {
-    color: #cccccc;
-    font-size: 15px;
-    line-height: 1.6;
+    color: #d0d0d0;
+    font-size: 16px;
+    line-height: 1.9;
 }
 
-/* Team card */
-.team-card {
+/* Team */
+.team-box {
     text-align: center;
-    padding: 20px;
-    background: linear-gradient(160deg, #1f2134, #181b2b);
-    border-radius: 15px;
-    transition: 0.3s;
-    border: 1px solid rgba(140, 162, 255, 0.3);
-}
-
-.team-card:hover {
-    transform: scale(1.05);
-    box-shadow: 0px 10px 25px rgba(255,255,255,0.1);
-}
-
-/* Animation */
-@keyframes fadeIn {
-    from {opacity: 0;}
-    to {opacity: 1;}
+    margin-top: 25px;
+    padding: 20px 0;
 }
 
 </style>
 """, unsafe_allow_html=True)
 
 # ---------------- TITLE ----------------
-st.markdown('<div class="main-title">About MovieMind</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">Smart Movie Discovery & Recommendation Platform</div>', unsafe_allow_html=True)
 st.markdown(
-    "<p style='text-align:center;color:#bcbcbc;'>MovieMind helps you discover movies faster using smart search, browsing by category, and recommendations based on your activity.</p>",
-    unsafe_allow_html=True,
+    '<div class="main-title">About MovieMind</div>',
+    unsafe_allow_html=True
 )
 
-# ---------------- ABOUT SECTION ----------------
-col1, col2 = st.columns(2)
+st.markdown(
+    '<div class="sub-title">Smart Movie Discovery & Recommendation Platform</div>',
+    unsafe_allow_html=True
+)
 
-with col1:
-    st.markdown("""
-    <div class="card">
-        <div class="section-title">Our Mission</div>
-        <div class="text">
-        MovieMind is designed to simplify the way users discover movies.
-        Our goal is to provide intelligent recommendations based on user preferences,
-        helping users find the perfect movie effortlessly.
-        </div>
+# ---------------- ABOUT ----------------
+st.markdown(
+    """
+    <div class="text" style="text-align:center; max-width:950px; margin:auto;">
+    MovieMind is a modern movie discovery and recommendation platform developed to improve
+    the way users search, explore, and analyze movies online. The platform combines
+    intelligent search functionality, category-based browsing, and personalized
+    recommendations to provide a seamless and engaging user experience.
+    <br><br>
+    Users can easily discover trending, popular, top-rated, and recently released movies.
+    The platform is designed with a clean and responsive interface that helps users
+    quickly access movie details, ratings, genres, release information, and recommendations.
+    MovieMind also focuses on improving user engagement through personalized experiences
+    and activity tracking.
     </div>
-    """, unsafe_allow_html=True)
+    """,
+    unsafe_allow_html=True
+)
 
-with col2:
-    st.markdown("""
-    <div class="card">
-        <div class="section-title">Our Vision</div>
-        <div class="text">
-        We aim to build a powerful movie platform that combines data analytics,
-        machine learning, and modern UI to create a seamless and engaging user experience.
-        </div>
+# ---------------- MISSION ----------------
+st.markdown(
+    '<div class="section-title">Our Mission</div>',
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    """
+    <div class="text">
+    Our mission is to simplify movie discovery by providing users with fast search,
+    accurate recommendations, and a user-friendly browsing experience.
+    We aim to help users save time while finding movies that match their interests
+    and preferences.
+    <br><br>
+    MovieMind is built to create an engaging entertainment platform where users
+    can explore movies effortlessly without complicated navigation or unnecessary distractions.
     </div>
-    """, unsafe_allow_html=True)
+    """,
+    unsafe_allow_html=True
+)
+
+# ---------------- VISION ----------------
+st.markdown(
+    '<div class="section-title">Our Vision</div>',
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    """
+    <div class="text">
+    Our vision is to build an advanced movie platform that combines modern web technologies,
+    recommendation systems, analytics, and interactive user experiences.
+    <br><br>
+    We aim to continuously improve the platform by integrating intelligent features,
+    enhancing performance, and delivering a smooth and visually appealing experience
+    for movie lovers.
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 # ---------------- FEATURES ----------------
-st.markdown("<br>", unsafe_allow_html=True)
+st.markdown(
+    '<div class="section-title">Key Features</div>',
+    unsafe_allow_html=True
+)
 
-st.markdown('<div class="section-title">Key Features</div>', unsafe_allow_html=True)
-
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.markdown("""
-    <div class="card">
-        <div class="section-title">Smart Search</div>
-        <div class="text">
-        Search and discover movies instantly with intelligent suggestions.
-        </div>
+st.markdown(
+    """
+    <div class="text">
+    • Smart movie search with fast suggestions<br>
+    • Browse movies by genre, category, and release year<br>
+    • Personalized movie recommendations based on user activity<br>
+    • Detailed movie information including ratings and genres<br>
+    • Watch history and search history tracking<br>
+    • Interactive and responsive user interface<br>
+    • User authentication with OTP verification<br>
+    • Multiple theme customization options<br>
+    • Analytics for user activity and engagement
     </div>
-    """, unsafe_allow_html=True)
+    """,
+    unsafe_allow_html=True
+)
 
-with col2:
-    st.markdown("""
-    <div class="card">
-        <div class="section-title">Personalized Recommendations</div>
-        <div class="text">
-        Get movie suggestions based on your interests and preferences.
-        </div>
+# ---------------- TECHNOLOGIES ----------------
+st.markdown(
+    '<div class="section-title">Technologies Used</div>',
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    """
+    <div class="text">
+    MovieMind is developed using modern technologies and tools to ensure
+    better performance, scalability, and user experience.
+    <br><br>
+    • Python<br>
+    • Streamlit<br>
+    • MySQL Database<br>
+    • SQLAlchemy<br>
+    • Pandas<br>
+    • NumPy<br>
+    • Scikit-learn<br>
+    • Plotly
     </div>
-    """, unsafe_allow_html=True)
+    """,
+    unsafe_allow_html=True
+)
 
-with col3:
-    st.markdown("""
-    <div class="card">
-        <div class="section-title">Detailed Insights</div>
-        <div class="text">
-        View ratings, genres, release dates, and complete movie details.
-        </div>
+# ---------------- WHY MOVIEMIND ----------------
+st.markdown(
+    '<div class="section-title">Why Choose MovieMind?</div>',
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    """
+    <div class="text">
+    MovieMind provides a simple yet powerful platform for discovering movies.
+    Unlike traditional movie browsing platforms, MovieMind focuses on personalization,
+    intelligent recommendations, and user-friendly navigation.
+    <br><br>
+    The platform is designed to help users quickly find movies they may enjoy,
+    making entertainment discovery faster and more engaging.
     </div>
-    """, unsafe_allow_html=True)
+    """,
+    unsafe_allow_html=True
+)
 
-# ---------------- TEAM SECTION ----------------
-st.markdown("<br><br>", unsafe_allow_html=True)
+# ---------------- FUTURE IMPROVEMENTS ----------------
+st.markdown(
+    '<div class="section-title">Future Improvements</div>',
+    unsafe_allow_html=True
+)
 
-st.markdown('<div class="section-title">Our Team</div>', unsafe_allow_html=True)
+st.markdown(
+    """
+    <div class="text">
+    Future versions of MovieMind may include advanced recommendation systems,
+    AI-powered chat assistance, real-time trending analytics, social sharing,
+    watchlist synchronization, and enhanced user personalization features.
+    <br><br>
+    Additional improvements will focus on performance optimization,
+    mobile responsiveness, and integration with external movie APIs.
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
-col1, col2, col3 = st.columns(3)
+# ---------------- DEVELOPER ----------------
+st.markdown(
+    '<div class="section-title">Developer</div>',
+    unsafe_allow_html=True
+)
 
-with col2:
-    st.markdown("""
-    <div class="team-card">
+st.markdown(
+    """
+    <div class="team-box">
         <h3 style="color:white;">Kushal Rohilla</h3>
-        <p style="color:#bbbbbb;">Developer & Designer</p>
+        <p style="color:#bcbcbc;">Developer & Designer</p>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+    unsafe_allow_html=True
+)
 
 # ---------------- FOOTER ----------------
 st.markdown("<br><br>", unsafe_allow_html=True)

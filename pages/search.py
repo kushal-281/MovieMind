@@ -1,57 +1,61 @@
 import streamlit as st
-from components.header import show_header
-from components.browse_grid import render_movie_grid
 
-# ---------------- PAGE CONFIG ----------------
+from components.browse_grid import render_movie_grid
+from components.header import SK_SEARCH_MOVIE, show_header
+from ml.recommendation_engine import recommend, search_movies
+
 st.set_page_config(layout="wide")
 
-# ---------------- SESSION ----------------
-if "search_movie" not in st.session_state:
-    st.session_state.search_movie = ""
+if SK_SEARCH_MOVIE not in st.session_state:
+    st.session_state[SK_SEARCH_MOVIE] = ""
 
-# ---------------- HEADER ----------------
 show_header()
 
-# ---------------- IMPORT ----------------
-from ml.recommendation_engine import recommend
+query = st.session_state.get(SK_SEARCH_MOVIE, "").strip()
 
-st.title("Search Results")
-
-query = st.session_state.get("search_movie", "").strip()
-st.write("Search Query:", query)
-
-if not query:
-    st.info("Enter a movie name in the search bar above and click Search.")
-
+st.title("🔎 Search Results")
+if query:
+    st.markdown(f"Showing matches for **{query}**")
 else:
+    st.info("Use the search bar above — type a title, actor, or genre, then click **Search**.")
+
+if query:
+    results = []
     try:
-        results = recommend(query)
+        results = recommend(query) or []
+    except Exception:
+        results = []
 
-        if not results:
-            st.warning("No movie found")
+    if not results:
+        results = search_movies(query, limit=30)
 
-        else:
-            results = [m for m in results if m.get("poster")]
-
-            # Fix IDs
-            for i, m in enumerate(results):
-                if not m.get("id"):
-                    m["id"] = f"temp_{i}"
-
-            rows = [
+    if not results:
+        st.warning("No movies found. Try another keyword or a partial title.")
+    else:
+        rows = []
+        seen = set()
+        for m in results:
+            mid = m.get("id")
+            if not mid or mid in seen:
+                continue
+            try:
+                mid = int(mid)
+            except (TypeError, ValueError):
+                continue
+            seen.add(mid)
+            rows.append(
                 {
-                    "movie_id": int(m["id"]),
-                    "title": m.get("title"),
-                    "poster_path": m.get("poster"),
+                    "movie_id": mid,
+                    "title": m.get("title") or "—",
+                    "poster_path": m.get("poster") or "",
                     "vote_average": m.get("rating", 0),
                     "vote_count": 0,
                     "industry": "",
                 }
-                for m in results
-                if str(m.get("id", "")).isdigit()
-            ]
-            st.caption(f"Showing {len(rows)} matched movies for **{query}**.")
-            render_movie_grid(rows, page_key_prefix="search")
+            )
 
-    except Exception as e:
-        st.error(f"Error while searching: {e}")
+        if not rows:
+            st.warning("No displayable results.")
+        else:
+            st.caption(f"Found **{len(rows)}** movie(s).")
+            render_movie_grid(rows, page_key_prefix="search", show_row_dividers=True)
