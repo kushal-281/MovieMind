@@ -3,26 +3,22 @@ import pandas as pd
 from sqlalchemy import text
 
 from components.footer import show_footer
-from components.header_without_search import header_without_search
+from components.header import show_header
+from components.static_page_styles import apply_static_page_styles
+from components.theme import init_theme
 from config.database import engine, ensure_schema
 
 st.set_page_config(page_title="FAQ - MovieMind", layout="wide")
+init_theme()
 ensure_schema()
-header_without_search()
+show_header()
+apply_static_page_styles()
 
 st.markdown(
     """
     <style>
-    .faq-title {
-        font-size: 2rem;
-        font-weight: 700;
-        color: #dbe4ff;
-        margin-bottom: 0.3rem;
-    }
-    .faq-sub {
-        color: #b5bfd6;
-        margin-bottom: 1rem;
-    }
+    .faq-title { font-size: 2rem; font-weight: 700; margin-bottom: 0.3rem; }
+    .faq-sub { margin-bottom: 1rem; }
     </style>
     """,
     unsafe_allow_html=True,

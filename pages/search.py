@@ -20,42 +20,41 @@ else:
     st.info("Use the search bar above — type a title, actor, or genre, then click **Search**.")
 
 if query:
-    results = []
+    rows = []
+    seen = set()
+
+    def _append_result(m):
+        mid = m.get("id")
+        if not mid or mid in seen:
+            return
+        try:
+            mid = int(mid)
+        except (TypeError, ValueError):
+            return
+        seen.add(mid)
+        rows.append(
+            {
+                "movie_id": mid,
+                "title": m.get("title") or "—",
+                "poster_path": m.get("poster") or "",
+                "vote_average": m.get("rating", 0),
+                "vote_count": 0,
+                "industry": "",
+            }
+        )
+
+    # Approved user submissions live only in the DB, not the ML pickle file.
+    for m in search_movies(query, limit=30):
+        _append_result(m)
+
     try:
-        results = recommend(query) or []
+        for m in recommend(query) or []:
+            _append_result(m)
     except Exception:
-        results = []
+        pass
 
-    if not results:
-        results = search_movies(query, limit=30)
-
-    if not results:
+    if not rows:
         st.warning("No movies found. Try another keyword or a partial title.")
     else:
-        rows = []
-        seen = set()
-        for m in results:
-            mid = m.get("id")
-            if not mid or mid in seen:
-                continue
-            try:
-                mid = int(mid)
-            except (TypeError, ValueError):
-                continue
-            seen.add(mid)
-            rows.append(
-                {
-                    "movie_id": mid,
-                    "title": m.get("title") or "—",
-                    "poster_path": m.get("poster") or "",
-                    "vote_average": m.get("rating", 0),
-                    "vote_count": 0,
-                    "industry": "",
-                }
-            )
-
-        if not rows:
-            st.warning("No displayable results.")
-        else:
-            st.caption(f"Found **{len(rows)}** movie(s).")
-            render_movie_grid(rows, page_key_prefix="search", show_row_dividers=True)
+        st.caption(f"Found **{len(rows)}** movie(s).")
+        render_movie_grid(rows, page_key_prefix="search", show_row_dividers=True)

@@ -277,6 +277,17 @@ def set_movie_approval(movie_id: int, approved: bool):
             text("UPDATE movies SET is_approved = :a WHERE movie_id = :mid"),
             {"a": 1 if approved else 0, "mid": int(movie_id)},
         )
+        if approved:
+            conn.execute(
+                text(
+                    """
+                    UPDATE movies
+                    SET popularity = GREATEST(COALESCE(popularity, 0), 1)
+                    WHERE movie_id = :mid
+                    """
+                ),
+                {"mid": int(movie_id)},
+            )
 
 
 def get_movie_reviews(movie_id: int):

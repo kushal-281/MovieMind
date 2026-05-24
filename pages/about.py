@@ -1,68 +1,31 @@
 import streamlit as st
+
 from components.footer import show_footer
 from components.header import show_header
-from components.header_without_search import header_without_search
+from components.static_page_styles import apply_static_page_styles
+from components.theme import init_theme
 
-# ---------------- PAGE CONFIG ----------------
 st.set_page_config(layout="wide")
+init_theme()
 
-# ---------------- SESSION ----------------
 if "user" not in st.session_state:
     st.session_state.user = None
 
-# ---------------- HEADER ----------------
 show_header()
+apply_static_page_styles()
 
-# ---------------- CUSTOM CSS ----------------
-st.markdown("""
-<style>
-
-body {
-    background-color: #0e1117;
-}
-
-/* Main Title */
-.main-title {
-    text-align: center;
-    font-size: 44px;
-    font-weight: 700;
-    color: white;
-    margin-top: 20px;
-}
-
-/* Subtitle */
-.sub-title {
-    text-align: center;
-    font-size: 18px;
-    color: #bcbcbc;
-    margin-bottom: 35px;
-}
-
-/* Section Title */
-.section-title {
-    font-size: 28px;
-    font-weight: 600;
-    color: white;
-    margin-top: 35px;
-    margin-bottom: 12px;
-}
-
-/* Text */
-.text {
-    color: #d0d0d0;
-    font-size: 16px;
-    line-height: 1.9;
-}
-
-/* Team */
-.team-box {
-    text-align: center;
-    margin-top: 25px;
-    padding: 20px 0;
-}
-
-</style>
-""", unsafe_allow_html=True)
+st.markdown(
+    """
+    <style>
+    .main-title { text-align: center; font-size: 44px; font-weight: 700; margin-top: 20px; }
+    .sub-title { text-align: center; font-size: 18px; margin-bottom: 35px; }
+    .section-title { font-size: 28px; font-weight: 600; margin-top: 35px; margin-bottom: 12px; }
+    .text { font-size: 16px; line-height: 1.9; }
+    .team-box { text-align: center; margin-top: 25px; padding: 20px 0; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 # ---------------- TITLE ----------------
 st.markdown(
@@ -232,8 +195,8 @@ st.markdown(
 st.markdown(
     """
     <div class="team-box">
-        <h3 style="color:white;">Kushal Rohilla</h3>
-        <p style="color:#bcbcbc;">Developer & Designer</p>
+        <h3>Kushal Rohilla</h3>
+        <p>Developer & Designer</p>
     </div>
     """,
     unsafe_allow_html=True

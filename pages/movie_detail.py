@@ -3,6 +3,7 @@ import streamlit as st
 from components.auth import restore_session, track_movie_dwell
 from components.footer import show_footer
 from components.header import show_header
+from components.poster_utils import hero_display_url, poster_display_url
 from components.movie_db import (
     add_or_update_review,
     get_movie_reviews,
@@ -85,23 +86,15 @@ st.markdown(
 if movie.get("original_title") and movie["original_title"] != movie.get("title"):
     st.caption(f"Original title: {movie['original_title']}")
 
-hero = None
-if movie.get("backdrop"):
-    hero = "https://image.tmdb.org/t/p/w1280" + str(movie["backdrop"])
-elif movie.get("poster"):
-    hero = "https://image.tmdb.org/t/p/w780" + str(movie["poster"])
-
-if hero:
-    st.image(hero, use_container_width=True)
+st.image(
+    hero_display_url(movie.get("backdrop"), movie.get("poster")),
+    use_container_width=True,
+)
 
 left, right = st.columns([1, 2])
 
 with left:
-    if movie.get("poster"):
-        st.image(
-            "https://image.tmdb.org/t/p/w500" + movie["poster"],
-            use_container_width=True,
-        )
+    st.image(poster_display_url(movie.get("poster")), use_container_width=True)
 
 with right:
     rating = float(movie.get("rating") or 0)

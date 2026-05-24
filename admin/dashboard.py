@@ -9,6 +9,7 @@ from email.mime.text import MIMEText
 
 from config.database import engine, ensure_schema
 from components.add_movie_form import render_add_movie_form
+from components.poster_utils import poster_display_url
 from components.movie_db import get_pending_movies, set_movie_approval
 
 
@@ -121,10 +122,7 @@ def show_admin_dashboard():
                 st.markdown(f"**Industry:** {row.get('industry', 'N/A')}")
                 st.markdown(f"**Submitted by:** {row.get('submitted_by_name', 'Unknown')}")
                 st.write(str(row.get("overview", ""))[:800])
-                if row.get("poster_path"):
-                    path = str(row["poster_path"])
-                    url = path if path.startswith("http") else f"https://image.tmdb.org/t/p/w342{path}"
-                    st.image(url, width=200)
+                st.image(poster_display_url(row.get("poster_path"), size="w342"), width=200)
                 c_yes, c_no = st.columns(2)
                 with c_yes:
                     if st.button(

@@ -1,68 +1,27 @@
 import streamlit as st
 
 from components.footer import show_footer
-from components.header_without_search import header_without_search
+from components.header import show_header
+from components.static_page_styles import apply_static_page_styles
+from components.theme import init_theme
 
-# ---------------- PAGE CONFIG ----------------
-st.set_page_config(
-    page_title="Terms & Conditions - MovieMind",
-    layout="wide"
-)
+st.set_page_config(page_title="Terms & Conditions - MovieMind", layout="wide")
+init_theme()
+show_header()
+apply_static_page_styles()
 
-# ---------------- HEADER ----------------
-header_without_search()
-
-# ---------------- CUSTOM CSS ----------------
 st.markdown("""
 <style>
-
-.block-container{
-#     max-width: 1100px;
-    padding-top: 20px;
-}
-
-/* Page */
-.main {
-    background-color: #0E1117;
-    color: white;
-}
-
-/* Title */
-.title {
-    text-align: center;
-    font-size: 42px;
-    font-weight: 700;
-    color: white;
-    margin-bottom: 10px;
-}
-
-/* Subtitle */
-.subtitle {
-    text-align: center;
-    color: #bdbdbd;
-    font-size: 16px;
-    margin-bottom: 40px;
-}
-
-/* Section */
-.section {
-    margin-bottom: 30px;
-}
-
-/* Heading */
+.block-container { padding-top: 20px; }
+.title { text-align: center; font-size: 42px; font-weight: 700; margin-bottom: 10px; }
+.subtitle { text-align: center; font-size: 16px; margin-bottom: 40px; }
+.section { margin-bottom: 30px; }
 .heading {
-    font-size: 24px;
-    font-weight: 600;
-    color: white;
-    margin-bottom: 10px;
-    border-left: 4px solid #4A90E2;
-    padding-left: 12px;
+    font-size: 24px; font-weight: 600; margin-bottom: 10px;
+    border-left: 4px solid var(--mm-accent); padding-left: 12px;
 }
-
-/* Text */
 .text {
     font-size: 16px;
-    color: #cfcfcf;
     line-height: 1.8;
 }
 
@@ -78,7 +37,7 @@ st.markdown("""
 /* Divider */
 hr {
     border: none;
-    border-top: 1px solid #2a2a2a;
+    border-top: 1px solid var(--mm-border);
     margin-top: 25px;
 }
 

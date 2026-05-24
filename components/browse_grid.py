@@ -2,7 +2,7 @@
 
 import streamlit as st
 
-TMDB_IMG = "https://image.tmdb.org/t/p/w500"
+from components.poster_utils import poster_display_url
 
 
 def render_movie_grid(
@@ -24,20 +24,14 @@ def render_movie_grid(
             m = rows[i + j]
             mid = m.get("movie_id")
             title = m.get("title") or "—"
-            poster = m.get("poster_path") or ""
             rating = m.get("vote_average")
             if rating is None:
                 rating = 0
 
-            poster_url = (
-                TMDB_IMG + poster if poster and not str(poster).startswith("http") else str(poster or "")
-            )
+            poster_url = poster_display_url(m)
 
             with cols[j]:
-                if poster_url:
-                    st.image(poster_url, use_container_width=True)
-                else:
-                    st.caption("No poster")
+                st.image(poster_url, use_container_width=True)
 
                 st.markdown(
                     f"<p style='text-align:center;font-weight:600;margin:2px 0 0 0;'>{title}</p>",

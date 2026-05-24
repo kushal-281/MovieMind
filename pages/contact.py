@@ -1,30 +1,68 @@
 import streamlit as st
 from sqlalchemy import text
 
+from components.email_utils import is_valid_email
 from components.footer import show_footer
-from components.header_without_search import header_without_search
+from components.header import show_header
+from components.static_page_styles import apply_static_page_styles
+from components.theme import init_theme
 from config.database import engine, ensure_schema
 
+
+def _user_email(user: dict) -> str:
+    if not user:
+        return ""
+    email = (user.get("email") or "").strip()
+    if email:
+        return email
+    uid = user.get("user_id")
+    if not uid:
+        return ""
+    try:
+        with engine.connect() as conn:
+            row = conn.execute(
+                text("SELECT email FROM users WHERE user_id = :uid LIMIT 1"),
+                {"uid": int(uid)},
+            ).fetchone()
+        return (row[0] or "").strip() if row else ""
+    except Exception:
+        return ""
+
 st.set_page_config(page_title="Contact Us - MovieMind", layout="wide")
+init_theme()
 ensure_schema()
-header_without_search()
+show_header()
+apply_static_page_styles()
 
 st.title("Contact MovieMind")
 st.caption("Have feedback, bug reports, or feature ideas? Send us a message.")
 
 user = st.session_state.get("user") or {}
 default_name = user.get("username", "")
+default_email = _user_email(user)
 
-with st.form("contact_form", clear_on_submit=True):
+with st.form("contact_form"):
     name = st.text_input("Your name", value=default_name)
-    email = st.text_input("Your email")
+    email = st.text_input("Your email", value=default_email)
     subject = st.text_input("Subject")
     message = st.text_area("Message", height=180)
     submitted = st.form_submit_button("Submit")
 
 if submitted:
-    if not name.strip() or not email.strip() or not message.strip():
-        st.error("Please fill name, email and message.")
+    missing = [
+        label
+        for label, value in (
+            ("name", name),
+            ("email", email),
+            ("subject", subject),
+            ("message", message),
+        )
+        if not (value or "").strip()
+    ]
+    if missing:
+        st.error(f"Please fill all required fields: {', '.join(missing)}.")
+    elif not is_valid_email(email.strip()):
+        st.error("Please enter a valid email address.")
     else:
         try:
             with engine.begin() as conn:
@@ -47,8 +85,6 @@ if submitted:
         except Exception as e:
             st.error(f"Could not submit your message right now: {e}")
 
-st.markdown("---")
-st.write("Email: support@moviemind.com")
-st.write("Location: Sonipat, Haryana, India")
+
 
 show_footer()

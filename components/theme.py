@@ -276,6 +276,16 @@ def apply_theme_css():
             color: {p["input_focus"]} !important;
             border-color: {p["input_focus"]} !important;
         }}
+
+        div[data-testid="stExpander"] details summary,
+        div[data-testid="stExpander"] details summary p {{
+            color: {p["heading"]} !important;
+        }}
+
+        div[data-testid="stExpander"] [data-testid="stMarkdownContainer"] p,
+        div[data-testid="stExpander"] [data-testid="stMarkdownContainer"] li {{
+            color: {p["text"]} !important;
+        }}
         </style>
         """,
         unsafe_allow_html=True,
